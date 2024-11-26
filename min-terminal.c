@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <poll.h>
 #include <assert.h>
 #include <X11/Xlib.h>
@@ -24,6 +26,8 @@ struct termbuf tb;
 
 XEvent event;
 
+XIC input_context;
+
 int primary_pty_fd;    // AKA the "master" end.
 int secondary_pty_fd;  // AKA the "slave" end.
 
@@ -32,6 +36,7 @@ int secondary_pty_fd;  // AKA the "slave" end.
 #endif
 
 void run_all_tests();
+void xevent();
 int exec_shell(char *command, char **args);
 
 void event_loop() {
@@ -48,15 +53,7 @@ void event_loop() {
 
     while(True) {
         if (XPending(display) > 0) {
-            XNextEvent(display, &event);
-            termbuf_render(&tb,
-                           display,
-                           window,
-                           screen,
-                           draw,
-                           font,
-                           18,
-                           22);
+            xevent();
         }
 
         struct pollfd pfd = {
@@ -92,15 +89,70 @@ void event_loop() {
     }
 }
 
+void xevent() {
+    XNextEvent(display, &event);
+
+    if (event.type == KeyPress) {
+        XKeyPressedEvent key_event = event.xkey;
+
+        char buf[64];
+        KeySym keysym = NoSymbol;
+        Status status;
+
+        int len = Xutf8LookupString(input_context, &key_event, buf, sizeof buf, &keysym, &status);
+
+        // Nothing really happened, ignore.
+        if (status == XLookupNone) {
+            return;
+        }
+
+        // `buf` was too small, panic.
+        if (status == XBufferOverflow) {
+            assert(false);
+        }
+
+        // At this point status must be one of XLookupChars or XLookupBoth
+        if (status != XLookupKeySym
+            && status != XLookupChars
+            && status != XLookupBoth) {
+            assert(false);
+        }
+
+        // Nothing about special symbols etc happened, we're simply going to insert
+        // something!!
+        if ((status == XLookupChars || status == XLookupBoth)
+            && !iscntrl((unsigned char)*buf)) {
+
+            buf[len] = '\0';
+            printf("Got key %s\n", buf);
+
+            termbuf_insert(&tb, buf[0]);
+            goto render;
+        }
+    }
+
+ render:
+
+    termbuf_render(&tb,
+                   display,
+                   window,
+                   screen,
+                   draw,
+                   font,
+                   18,
+                   22);
+}
+
 // From simpleterminal.
 int exec_shell(char *cmd, char **args)
 {
-	char *sh, *prog, *arg;
+	char *prog, *arg;
 
 	int errno = 0;
 
-    sh = getenv("SHELL");
-    if (sh == NULL) {
+    //char *shell_name = getenv("SHELL");
+    char *shell_name = "/bin/sh";
+    if (shell_name == NULL) {
         assert(false);
     }
 
@@ -114,7 +166,7 @@ int exec_shell(char *cmd, char **args)
         //	prog = utmp;
         //	arg = NULL;
     } else {
-        prog = sh;
+        prog = shell_name;
         arg = NULL;
     }
     //DEFAULT(args, ((char *[]) {prog, arg, NULL}));
@@ -124,8 +176,10 @@ int exec_shell(char *cmd, char **args)
     //unsetenv("TERMCAP");
     //setenv("LOGNAME", pw->pw_name, 1);
     //setenv("USER", pw->pw_name, 1);
-    //setenv("SHELL", sh, 1);
+    setenv("USER", "emma", 1);
+    setenv("SHELL", shell_name, 1);
     //setenv("HOME", pw->pw_dir, 1);
+    setenv("HOME", "/home/emma", 1);
     //setenv("TERM", termname, 1);
 
     signal(SIGCHLD, SIG_DFL);
@@ -172,17 +226,29 @@ int main() {
             assert(false);
         }
 
-        dup2(secondary_pty_fd, 1);
-        dup2(secondary_pty_fd, 2);
-        // TODO: stdin
+        // Create a new process group (which you want when launching a new
+        // terminal?).
+        setsid();
+        dup2(secondary_pty_fd, 0);  // use secondary_pty_fd for STDIN
+        dup2(secondary_pty_fd, 1);  // use secondary_pty_fd for STDOUT
+        dup2(secondary_pty_fd, 2);  // use secondary_pty_fd for STDERR
 
+        // "Make the given terminal the controling terminal of the calling
+        // process"?
+        ret = ioctl(secondary_pty_fd, TIOCSCTTY, NULL);
+        if (ret == -1) {
+            assert(false);
+        }
+
+        // We can close the secondary_pty_fd handle now, the STDIN, STDOUT and
+        // STDERR handles we just created are still valid.
         ret = close(secondary_pty_fd);
         if (ret == -1) {
             assert(false);
         }
 
         //ret = execl("/bin/sh", "/bin/sh", (char *) NULL);
-        char *args[2];
+        char *args[3];
         args[0] = "/bin/sh";
         args[1] = NULL;
         ret = exec_shell("/bin/sh", args);
@@ -269,6 +335,8 @@ int main() {
     // Get the window onto the display
     XMapRaised(display, window);
 
+    XSetInputFocus(display, window, RevertToParent, CurrentTime);
+
     // Make a draw (whatever that is?)
     draw = XftDrawCreate(
         display,
@@ -281,6 +349,24 @@ int main() {
     if (font == NULL) {
         assert(false);
     }
+
+    // Make an input context, used later to decode keypresses
+
+    XIM input_method = XOpenIM(display, NULL, NULL, NULL);
+    if (input_method == NULL) {
+      fprintf(stderr, "XOpenIM failed: could not open input device");
+      return 1;
+    }
+
+    input_context = XCreateIC(
+      input_method,
+      XNInputStyle,
+      XIMPreeditNothing | XIMStatusNothing,
+      XNClientWindow,
+      window,
+      XNFocusWindow,
+      window,
+      NULL);
 
     run_all_tests();
 
