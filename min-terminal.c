@@ -95,11 +95,16 @@ void xevent() {
     if (event.type == KeyPress) {
         XKeyPressedEvent key_event = event.xkey;
 
-        char buf[64];
+        char buf[5];
         KeySym keysym = NoSymbol;
         Status status;
 
-        int len = Xutf8LookupString(input_context, &key_event, buf, sizeof buf, &keysym, &status);
+        int len = Xutf8LookupString(input_context,
+                                    &key_event,
+                                    buf,
+                                    4,
+                                    &keysym,
+                                    &status);
 
         // Nothing really happened, ignore.
         if (status == XLookupNone) {
@@ -111,36 +116,26 @@ void xevent() {
             assert(false);
         }
 
-        // At this point status must be one of XLookupChars or XLookupBoth
+        // At this point status must be one of XLookupKeySym, XLookupChars or
+        // XLookupBoth
         if (status != XLookupKeySym
             && status != XLookupChars
             && status != XLookupBoth) {
             assert(false);
         }
 
-        // Nothing about special symbols etc happened, we're simply going to insert
-        // something!!
-        if ((status == XLookupChars || status == XLookupBoth)
-            && !iscntrl((unsigned char)*buf)) {
-
-            buf[len] = '\0';
-            printf("Got key %s\n", buf);
-
-            termbuf_insert(&tb, buf[0]);
-            goto render;
+        // We didn't write anything to `buf`, ignore.
+        if (len == 0) {
+            return;
         }
+
+        buf[len] = '\0';
+        printf("Got key %s\n", buf);
+        printf("Got int %d\n", buf[0]);
+        write(primary_pty_fd, buf, len);
+
+        return;
     }
-
- render:
-
-    termbuf_render(&tb,
-                   display,
-                   window,
-                   screen,
-                   draw,
-                   font,
-                   18,
-                   22);
 }
 
 // From simpleterminal.
