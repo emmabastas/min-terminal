@@ -72,10 +72,11 @@ void event_loop() {
                 assert(false);
             }
             buf[did_read] = '\0';
-            printf("Did read %s\n", buf);
-            for (int i = 0; i < did_read; i++) {
-                termbuf_insert(&tb, buf[i]);
-            }
+            printf("Did read \"%s\"\n", buf);
+            //for (int i = 0; i < did_read; i++) {
+            //    termbuf_insert(&tb, buf[i]);
+            //}
+            termbuf_parse(&tb, buf, did_read);
             termbuf_render(&tb,
                            display,
                            window,
@@ -130,8 +131,8 @@ void xevent() {
         }
 
         buf[len] = '\0';
-        printf("Got key %s\n", buf);
-        printf("Got int %d\n", buf[0]);
+        printf("Got key from x11 %s\n", buf);
+        printf("Got int from x11 %d\n", buf[0]);
         write(primary_pty_fd, buf, len);
 
         return;

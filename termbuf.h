@@ -6,7 +6,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
 
-#include "CuTest.h"
+#include "./CuTest.h"
 
 // Here are some styling attributes that can be set by ANSCI escape codes
 // https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
@@ -37,6 +37,11 @@ struct termbuf_char {
     uint8_t  bg_color_b;
 };
 
+enum parser_state {
+    P_STATE_GROUND = 0,
+};
+#define NSTATES 1
+
 // #if sizeof(termbuf_char) != 8
 // #error "struct termbuf_char should be 64 bits."
 // #endif
@@ -53,10 +58,12 @@ struct termbuf {
     uint8_t bg_color_r;
     uint8_t bg_color_g;
     uint8_t bg_color_b;
+    enum parser_state p_state;
     struct termbuf_char *buf;
 };
 
 void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret);
+void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
 void termbuf_insert(struct termbuf *tb, uint32_t codepoint);
 void termbuf_render(struct termbuf *tb,
                     Display *display,

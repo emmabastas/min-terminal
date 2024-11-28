@@ -31,6 +31,9 @@
               xorg.libX11
               xorg.libXft
               xclip
+              (pkgs.python3.withPackages (python-pkgs: [
+                python-pkgs.cogapp
+              ]))
             ];
           };
         }
