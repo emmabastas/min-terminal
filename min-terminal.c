@@ -73,9 +73,6 @@ void event_loop() {
             }
             buf[did_read] = '\0';
             printf("Did read \"%s\"\n", buf);
-            //for (int i = 0; i < did_read; i++) {
-            //    termbuf_insert(&tb, buf[i]);
-            //}
             termbuf_parse(&tb, buf, did_read);
             termbuf_render(&tb,
                            display,

@@ -8,39 +8,38 @@
 
 #include "./CuTest.h"
 
-// Here are some styling attributes that can be set by ANSCI escape codes
-// https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
-// Not everyting is supported, in particular selecting alternative fonts with
-// ESC[11m - ESC[19m.
-#define STYLEFLAG_PLAIN     (1 << 0)
-#define STYLEFLAG_BOLD      (1 << 1)
-#define STYLEFLAG_FAINT     (1 << 2)
-#define STYLEFLAG_ITALIC    (1 << 3)
-#define STYLEFLAG_UNDERLINE (1 << 4)
-#define STYLEFLAG_STRIKEOUT (1 << 5)
-#define STYLEFLAG_UNUSED5   (1 << 6)
-#define STYLEFLAG_UNUSED6   (1 << 7)
-// Indicates that the entire termbuf_char represents the absence of data which
-// is distinct from data that meerely looks empty, like a '\0' character.
-#define STYLEFLAG_NO_DATA   0
+#define FLAG_LENGTH_0 0    // 0b00000000
+#define FLAG_LENGTH_1 1    // 0b00000001
+#define FLAG_LENGTH_2 2    // 0b00000010
+#define FLAG_LENGTH_3 3    // 0b00000011
+#define FLAG_LENGTH_4 4    // 0b00000100
+#define FLAG_LENGTH_MASK 7 // 0b00000111
+#define LAG_BOLD      8    // 0b00001000
+#define LAG_FAINT     16   // 0b00010000
+#define LAG_ITALIC    32   // 0b00100000
+#define LAG_UNDERLINE 64   // 0b01000000
+#define LAG_STRIKEOUT 128  // 0b10000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc. Fits snuggly in 88-bits.
 struct termbuf_char {
-    uint32_t codepoint;
-    uint8_t  style_flags;
-    uint8_t  fg_color_r;
-    uint8_t  fg_color_g;
-    uint8_t  fg_color_b;
-    uint8_t  bg_color_r;
-    uint8_t  bg_color_g;
-    uint8_t  bg_color_b;
+    uint8_t utf8_char[4];
+    uint8_t flags;
+    uint8_t fg_color_r;
+    uint8_t fg_color_g;
+    uint8_t fg_color_b;
+    uint8_t bg_color_r;
+    uint8_t bg_color_g;
+    uint8_t bg_color_b;
 };
 
 enum parser_state {
     P_STATE_GROUND = 0,
+    P_STATE_CHOMP1 = 1,
+    P_STATE_CHOMP2 = 2,
+    P_STATE_CHOMP3 = 3,
 };
-#define NSTATES 1
+#define NSTATES 4
 
 // #if sizeof(termbuf_char) != 8
 // #error "struct termbuf_char should be 64 bits."
@@ -51,7 +50,7 @@ struct termbuf {
     int ncols;
     int row;
     int col;
-    uint8_t style_flags;
+    uint8_t flags;
     uint8_t fg_color_r;
     uint8_t fg_color_g;
     uint8_t fg_color_b;
@@ -59,12 +58,13 @@ struct termbuf {
     uint8_t bg_color_g;
     uint8_t bg_color_b;
     enum parser_state p_state;
+    uint8_t parse_data[4];
     struct termbuf_char *buf;
 };
 
 void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret);
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
-void termbuf_insert(struct termbuf *tb, uint32_t codepoint);
+void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
 void termbuf_render(struct termbuf *tb,
                     Display *display,
                     int window,
