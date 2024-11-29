@@ -167,6 +167,18 @@ void action_print(struct termbuf *tb, char ch) {
     termbuf_insert(tb, (uint8_t *) &ch, 1);
 }
 
+void action_carige_return(struct termbuf *tb, char ch) {
+    tb->col = 1;
+}
+
+void action_line_feed(struct termbuf *tb, char ch) {
+    tb->row ++;
+    if (tb-> row > tb->nrows) {
+        //assert(false);
+        tb->row = 1;
+    }
+}
+
 void action_utf8_chomp_start(struct termbuf *tb, char ch) {
     tb->p_data.utf8_chomping = (struct utf8_chomping) {
         .len = 1,
@@ -274,6 +286,8 @@ P_STATE_CSI_PARAMS    = "P_STATE_CSI_PARAMS"
 action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
+action_carige_return       = "action_carige_return"
+action_line_feed           = "action_line_feed"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
 action_utf8_chomp_continue = "action_utf8_chomp_continue"
 action_utf8_chomp_end      = "action_utf8_chomp_end"
@@ -286,7 +300,15 @@ table = [
   # P_STATE_GROUND #
   ##################
   # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(0  , 26 ),    P_STATE_GROUND, action_fail               ],
+  [ P_STATE_GROUND, r(0  , 9  ), P_STATE_GROUND, action_fail                  ],
+  # Got a line feed '\n'
+  [ P_STATE_GROUND, [ 10 ]     , P_STATE_GROUND, action_line_feed             ],
+  # Got a miscelanious C0 control character.
+  [ P_STATE_GROUND, [ 11, 12 ] , P_STATE_GROUND, action_fail                  ],
+  # Got a carrige return '\r'
+  [ P_STATE_GROUND, [ 13 ]     , P_STATE_GROUND, action_carige_return         ],
+  # Got a miscelanious C0 control character.
+  [ P_STATE_GROUND, r(14 , 26 ), P_STATE_GROUND, action_fail                  ],
   # Got the C0 control character "ESC".
   [ P_STATE_GROUND, [ 27 ]     , P_STATE_ESC   , action_noop                  ],
   # Got a miscelanious C0 control character.
@@ -443,13 +465,13 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_line_feed, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_carige_return, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
