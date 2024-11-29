@@ -209,6 +209,9 @@ int main() {
     }
     printf("The pty is in %s.\n", primary_pty_name);
 
+    const int NROWS = 15;
+    const int NCOLS = 40;
+
     pid_t pid = fork();
     if (pid < 0) {
         assert(false);
@@ -226,9 +229,25 @@ int main() {
         dup2(secondary_pty_fd, 1);  // use secondary_pty_fd for STDOUT
         dup2(secondary_pty_fd, 2);  // use secondary_pty_fd for STDERR
 
+        // TODO: "Use of ioctl() makes for nonportable programs. Use the POSIX
+        //       interface described in termios(3) whenever possible."
+        //       Can we get rid of ioctl?
+
         // "Make the given terminal the controling terminal of the calling
         // process"?
         ret = ioctl(secondary_pty_fd, TIOCSCTTY, NULL);
+        if (ret == -1) {
+            assert(false);
+        }
+
+        // Set the dimensions of the terminal
+        struct winsize ws = {
+            .ws_row = NROWS,
+            .ws_col = NCOLS,
+            .ws_xpixel = 0,  // unused.
+            .ws_ypixel = 0,  // unused.
+        };
+        ret = ioctl(secondary_pty_fd, TIOCSWINSZ, &ws);
         if (ret == -1) {
             assert(false);
         }
@@ -240,7 +259,6 @@ int main() {
             assert(false);
         }
 
-        //ret = execl("/bin/sh", "/bin/sh", (char *) NULL);
         char *args[3];
         args[0] = "/bin/sh";
         args[1] = NULL;
@@ -251,55 +269,7 @@ int main() {
         assert(false);
     }
 
-    termbuf_initialize(15, 40, &tb);
-    //tb.buf[0] = (struct termbuf_char) {
-    //    'A',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    0, 0, 0,
-    //};
-    //tb.buf[1] = (struct termbuf_char) {
-    //    'B',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    0, 0, 0,
-    //};
-    //tb.buf[2] = (struct termbuf_char) {
-    //    'C',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    0, 0, 0,
-    //};
-    //tb.buf[38] = (struct termbuf_char) {
-    //    'D',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    0, 0, 0,
-    //};
-    //tb.buf[39] = (struct termbuf_char) {
-    //    'E',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    255, 0, 0,
-    //};
-    //tb.buf[40] = (struct termbuf_char) {
-    //    'F',
-    //    STYLEFLAG_NO_DATA,//STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    0, 255, 0,
-    //};
-    //tb.buf[41] = (struct termbuf_char) {
-    //    'y',
-    //    STYLEFLAG_PLAIN,
-    //    255, 255, 255,
-    //    255, 0, 255,
-    //};
-
-    //tb.row = 1;
-    //tb.col = 39;
-    //termbuf_insert(&tb, '#');
-    //termbuf_insert(&tb, '!');
-    //termbuf_insert(&tb, '$');
+    termbuf_initialize(NROWS, NCOLS, &tb);
 
     display = XOpenDisplay(NULL);
     if (!display) { assert(false); }
