@@ -167,10 +167,27 @@ void action_print(struct termbuf *tb, char ch) {
     termbuf_insert(tb, (uint8_t *) &ch, 1);
 }
 
+// handles '\t'
+void action_tabstop(struct termbuf *tb, char ch) {
+    // and-ing with this bitmasks truncates the number to be multiple of 8 (+1)
+    // (assuming the current column is smaller than 2^16 - 1).
+    tb->col = ((tb->col + 8) & 0b1111111111110000) + 1;
+    if (tb->col > tb->ncols) {
+        tb->col = 1;
+        tb->row ++;
+        if (tb->row > tb->nrows) {
+            //assert(false);
+            tb->row = 1;
+        }
+    }
+}
+
+// handles 'r'
 void action_carige_return(struct termbuf *tb, char ch) {
     tb->col = 1;
 }
 
+// handles '\n'
 void action_line_feed(struct termbuf *tb, char ch) {
     tb->row ++;
     if (tb-> row > tb->nrows) {
@@ -286,6 +303,7 @@ P_STATE_CSI_PARAMS    = "P_STATE_CSI_PARAMS"
 action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
+action_tabstop             = "action_tabstop"
 action_carige_return       = "action_carige_return"
 action_line_feed           = "action_line_feed"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
@@ -300,7 +318,9 @@ table = [
   # P_STATE_GROUND #
   ##################
   # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(0  , 9  ), P_STATE_GROUND, action_fail                  ],
+  [ P_STATE_GROUND, r(0  , 8  ), P_STATE_GROUND, action_fail                  ],
+  # Got a tabstop '\t'
+  [ P_STATE_GROUND, [ 9 ]      , P_STATE_GROUND, action_tabstop               ],
   # Got a line feed '\n'
   [ P_STATE_GROUND, [ 10 ]     , P_STATE_GROUND, action_line_feed             ],
   # Got a miscelanious C0 control character.
@@ -463,7 +483,7 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_tabstop, },
     { .new_state = P_STATE_GROUND,
       .action = &action_line_feed, },
     { .new_state = P_STATE_GROUND,

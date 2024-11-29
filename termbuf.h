@@ -60,12 +60,6 @@ union parser_data {
     } ansi_csi_chomping;
 };
 
-/* ESC[?2004 ->
-       initial_char   = '?'
-       n_params       = 1
-       params         = { 2004, 0, 0 }
-*/
-
 struct termbuf {
     int nrows;
     int ncols;
