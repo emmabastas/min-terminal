@@ -41,9 +41,12 @@ enum parser_state {
 };
 #define NSTATES 4
 
-// #if sizeof(termbuf_char) != 8
-// #error "struct termbuf_char should be 64 bits."
-// #endif
+union parser_data {
+    struct utf8_chomping {
+        uint8_t len;
+        uint8_t utf8_char[4];
+    } utf8_chomping;
+};
 
 struct termbuf {
     int nrows;
@@ -57,8 +60,8 @@ struct termbuf {
     uint8_t bg_color_r;
     uint8_t bg_color_g;
     uint8_t bg_color_b;
-    enum parser_state p_state;
-    uint8_t parse_data[4];
+    enum  parser_state p_state;
+    union parser_data  p_data;
     struct termbuf_char *buf;
 };
 

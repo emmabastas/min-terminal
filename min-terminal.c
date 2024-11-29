@@ -66,7 +66,7 @@ void event_loop() {
             assert(false);
         }
         if (ret > 0) {  // means we didn't timeout.
-            char buf[64];
+            uint8_t buf[64];
             size_t did_read = read(primary_pty_fd, buf, 63);
             if (did_read == 0) {  // the pty is closed!?
                 assert(false);
