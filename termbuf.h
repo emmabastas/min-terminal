@@ -83,14 +83,6 @@ struct termbuf {
 void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret);
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
 void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
-void termbuf_render(struct termbuf *tb,
-                    Display *display,
-                    int window,
-                    int screen,
-                    XftDraw *draw,
-                    XftFont *font,
-                    int cell_width,
-                    int cell_height);
 
 CuSuite *termbuf_test_suite();
 

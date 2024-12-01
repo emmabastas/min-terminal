@@ -38,18 +38,69 @@ int secondary_pty_fd;  // AKA the "slave" end.
 void run_all_tests();
 void xevent();
 int exec_shell(char *command, char **args);
+void render();
+
+void render() {
+    const int cell_width = 18;
+    const int cell_height = 22;
+
+    XRenderColor fg;
+    XftColor color_foreground;
+    GC gc = XCreateGC(display,
+                      window,
+                      0,
+                      NULL);
+
+    for (int row = 1; row <= tb.nrows; row ++) {
+        for (int col = 1; col <= tb.ncols; col ++) {
+            struct termbuf_char *c =
+                tb.buf + (row - 1) * tb.ncols + col - 1;
+
+            XSetForeground(display, gc,
+                           (c->bg_color_r << 16)
+                           + (c->bg_color_g << 8)
+                           + c->bg_color_b);
+
+            XFillRectangle(
+                display,
+                window,
+                gc,
+                (col - 1) * cell_width,
+                (row - 1) * cell_height,
+                cell_width,
+                cell_height);
+
+            if (c->flags & FLAG_LENGTH_MASK == FLAG_LENGTH_0) {
+                continue;
+            }
+
+            fg = (XRenderColor) { c->fg_color_r << 8,
+                                  c->fg_color_g << 8,
+                                  c->fg_color_b << 8,
+                                  65535 };
+
+            XftColorAllocValue(
+                display,
+                DefaultVisual(display, screen),
+                DefaultColormap(display, screen), &fg,
+                &color_foreground);
+
+            XftDrawStringUtf8(
+              draw,
+              &color_foreground,
+              font,
+              (col - 1) * cell_width,
+              (row - 1) * cell_height + cell_height,
+              (XftChar8 *) c,
+              c->flags & FLAG_LENGTH_MASK);
+        }
+    }
+}
 
 void event_loop() {
     XSelectInput(display, window, KeyPressMask|FocusChangeMask); // override prev
 
-    termbuf_render(&tb,
-                   display,
-                   window,
-                   screen,
-                   draw,
-                   font,
-                   18,
-                   22);
+    render();
 
     while(True) {
         if (XPending(display) > 0) {
@@ -74,14 +125,7 @@ void event_loop() {
             buf[did_read] = '\0';
             printf("Did read \"%s\"\n", buf);
             termbuf_parse(&tb, buf, did_read);
-            termbuf_render(&tb,
-                           display,
-                           window,
-                           screen,
-                           draw,
-                           font,
-                           18,
-                           22);
+            render();
         }
         usleep(100);
     }
