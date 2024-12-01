@@ -173,7 +173,7 @@ int exec_shell(char *cmd, char **args)
     setenv("SHELL", shell_name, 1);
     //setenv("HOME", pw->pw_dir, 1);
     setenv("HOME", "/home/emma", 1);
-    //setenv("TERM", termname, 1);
+    setenv("TERM", "st-256color", 1);
 
     signal(SIGCHLD, SIG_DFL);
     signal(SIGHUP,  SIG_DFL);
@@ -209,8 +209,8 @@ int main() {
     }
     printf("The pty is in %s.\n", primary_pty_name);
 
-    const int NROWS = 15;
-    const int NCOLS = 40;
+    const int NROWS = 18;
+    const int NCOLS = 44;
 
     pid_t pid = fork();
     if (pid < 0) {

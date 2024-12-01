@@ -7,7 +7,10 @@
 
 #include "CuTest.h"
 
+
+
 // Shoutout https://poor.dev/blog/terminal-anatomy/
+// and      https://vt100.net/emu/dec_ansi_parser
 
 
 
@@ -17,7 +20,7 @@ void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret) {
 
     tb_ret->nrows = nrows;
     tb_ret->ncols = ncols;
-    tb_ret->row = nrows;
+    tb_ret->row = 1;
     tb_ret->col = 1;
     tb_ret->flags = FLAG_LENGTH_0;
     tb_ret->fg_color_r = 255;
@@ -158,13 +161,42 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
 void action_noop(struct termbuf *tb, char ch) {}
 
 void action_fail(struct termbuf *tb, char ch) {
-    fprintf(stderr, "Parser failed in state %d with the current input being "
-            "%d / '%c'.\n", tb->p_state, ch, ch);
+    // TODO: A problem here is that we might be displaying parse data from
+    //       a previous "round", leading us astray when debugging.
+
+    fprintf(stderr,
+            "Parser failed\n"
+            "    state        : %d\n"
+            "    ch           : %d / '%c'\n",
+            tb->p_state,
+            ch, ch);
+
+    if (tb->p_state == P_STATE_CSI_PARAMS) {
+        fprintf(stderr,
+                "    initial_char : %d / '%c'\n"
+                "    current_param: %d\n"
+                "    param1       : %d\n"
+                "    param2       : %d\n"
+                "    param3       : %d\n",
+                tb->p_data.ansi_csi_chomping.initial_char,
+                tb->p_data.ansi_csi_chomping.initial_char,
+                tb->p_data.ansi_csi_chomping.current_param,
+                tb->p_data.ansi_csi_chomping.params[0],
+                tb->p_data.ansi_csi_chomping.params[1],
+                tb->p_data.ansi_csi_chomping.params[2]);
+    }
+
     assert(false);
 }
 
 void action_print(struct termbuf *tb, char ch) {
     termbuf_insert(tb, (uint8_t *) &ch, 1);
+}
+
+// handles '\b'
+void action_backspace(struct termbuf *tb, char ch) {
+    assert(tb->col >= 1);
+    tb->col --;
 }
 
 // handles '\t'
@@ -182,7 +214,7 @@ void action_tabstop(struct termbuf *tb, char ch) {
     }
 }
 
-// handles 'r'
+// handles '\r'
 void action_carige_return(struct termbuf *tb, char ch) {
     tb->col = 1;
 }
@@ -223,14 +255,19 @@ void action_utf8_chomp_end(struct termbuf *tb, char ch) {
     termbuf_insert(tb, (uint8_t *) &data->utf8_char, data->len);
 }
 
-void action_csi_chomp_start_initial_char(struct termbuf *tb, char ch) {
-    assert(ch == '?');
+void action_csi_chomp_start(struct termbuf *tb, char ch) {
+    assert(ch == '[');
 
     tb->p_data.ansi_csi_chomping = (struct ansi_csi_chomping) {
-        .initial_char    = ch,
+        .initial_char    = '\0',
         .current_param = 0,
         .params          = { 0, 0, 0 },
     };
+}
+
+void action_csi_chomp_initial_char(struct termbuf *tb, char ch) {
+    assert(ch == '?');
+    tb->p_data.ansi_csi_chomping.initial_char = '?';
 }
 
 void action_csi_chomp_param(struct termbuf *tb, char ch) {
@@ -261,6 +298,88 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // Now commes a big task of figuring out what the parsed ANSI escape sequnce
     // means.
 
+    // ESC n ; m H, CUP, set cursor position
+    if (ch == 'H') {
+        // TODO: handle
+        assert(len == 0);
+        tb->row = 1;
+        tb->col = 1;
+        return;
+    }
+
+    // ESC n A, CUU, move cursor up
+    if (ch == 'A' && (len == 0 || len == 1)) {
+        int n = len == 0 ? 1 : p1;
+        tb->row = tb->row - n < 1 ? 1 : tb->row - n;
+        return;
+    }
+
+    // ESC n B, CUD, move cursor down
+    if (ch == 'B' && (len == 0 || len == 1)) {
+        int n = len == 0 ? 1 : p1;
+        tb->row = tb->row + n > tb->nrows ? tb->nrows : tb->row + n;
+        return;
+    }
+
+    // ESC n C, CUF, move cursor forward
+    if (ch == 'C' && (len == 0 || len == 1)) {
+        int n = len == 0 ? 1 : p1;
+        tb->col = tb->col + n > tb->ncols ? tb->ncols : tb->col + n;
+        return;
+    }
+
+
+    // ESC n D, CUB, move cursor backwards
+    if (ch == 'D' && (len == 0 || len == 1)) {
+        int n = len == 0 ? 1 : p1;
+        tb->col = tb->col - n < 1 ? 1 : tb->col - n;
+        return;
+    }
+
+    // ESC 0 J, ED, erase display from cursor to end of scree.
+    if (ch == 'J' && (len == 0 || len == 1) && p1 == 0) {
+        // TODO
+        assert(false);
+    }
+
+    // ESC 1 J, ED, erase display from cursor to begining of screen.
+    if (ch == 'J' && len == 1 && p1 == 1) {
+        // TODO
+        assert(false);
+    }
+
+    // ESC 2 J, ED, erase entire display.
+    if (ch == 'J' && len == 1 && p1 == 2) {
+        memset(tb->buf, 0, tb->ncols * tb->nrows * sizeof(struct termbuf_char));
+        return;
+    }
+
+    // ESC 3 J, ED, erase entire display and clear the scrollback buffer.
+    if (ch == 'J' && len == 1 && p1 == 3) {
+        // TODO
+        assert(false);
+    }
+
+    // ESC 0 K, EL, erase line from cursor to end of line.
+    if (ch == 'K' && (len == 0 || len == 1) && p1 == 0) {
+        memset(tb->buf + ((tb->row - 1) * tb->ncols) + tb->col - 1,
+               0,
+               (tb->ncols - tb->col + 1) * sizeof(struct termbuf_char));
+        return;
+    }
+
+    // ESC 1 K, EL, erase line from cursor to begining of line.
+    if (ch == 'K' && len == 1 && p1 == 1) {
+        // TODO
+        assert(false);
+    }
+
+    // ESC 2 K, EL, clear entire line.
+    if (ch == 'K' && len == 1 && p1 == 2) {
+        // TODO
+        assert(false);
+    }
+
     // ESC[?2004h "Turn on bracketed paste mode."
     if (ic == '?' && len == 1 && p1 == 2004 && ch == 'h') {
         tb->flags |= FLAG_BRACKETED_PASTE_MODE;
@@ -275,11 +394,13 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // It's an escape sequence unknown to us.
     printf("Got an unknown ANSI escape sequence with:\n"
+           "    ch            : '%c' (decimal %d).\n"
            "    initial_char  : '%c' (decimal %d).\n"
            "    current_param : %d.\n"
            "    param1        : %d.\n"
            "    param2        : %d.\n"
            "    param3        : %d.\n",
+           ch, ch,
            ic, ic,
            data->current_param,
            p1, p2, p3);
@@ -303,22 +424,26 @@ P_STATE_CSI_PARAMS    = "P_STATE_CSI_PARAMS"
 action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
+action_backspace           = "action_backspace"
 action_tabstop             = "action_tabstop"
 action_carige_return       = "action_carige_return"
 action_line_feed           = "action_line_feed"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
 action_utf8_chomp_continue = "action_utf8_chomp_continue"
 action_utf8_chomp_end      = "action_utf8_chomp_end"
-action_csi_chomp_start_initial_char = "action_csi_chomp_start_initial_char"
-action_csi_chomp_param              = "action_csi_chomp_param"
-action_csi_chomp_final_byte         = "action_csi_chomp_final_byte"
+action_csi_chomp_start     = "action_csi_chomp_start"
+action_csi_chomp_initial_char = "action_csi_chomp_initial_char"
+action_csi_chomp_param        = "action_csi_chomp_param"
+action_csi_chomp_final_byte   = "action_csi_chomp_final_byte"
 
 table = [
   ##################
   # P_STATE_GROUND #
   ##################
   # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(0  , 8  ), P_STATE_GROUND, action_fail                  ],
+  [ P_STATE_GROUND, r(0  , 7  ), P_STATE_GROUND, action_fail                  ],
+  # Got a backspace '\b'
+  [ P_STATE_GROUND, [ 8 ]      , P_STATE_GROUND, action_backspace             ],
   # Got a tabstop '\t'
   [ P_STATE_GROUND, [ 9 ]      , P_STATE_GROUND, action_tabstop               ],
   # Got a line feed '\n'
@@ -411,7 +536,7 @@ table = [
   [ P_STATE_ESC, r(0, 90),   P_STATE_GROUND, action_fail                      ],
   # Got '['. "ESC[" is a "control sequence introducer" (CSI). Basically we have
   # the start of an ANSI escape sequence now.
-  [ P_STATE_ESC, [ 91 ],     P_STATE_CSI, action_noop                         ],
+  [ P_STATE_ESC, [ 91 ],     P_STATE_CSI, action_csi_chomp_start              ],
   # Got some follow-up byte we we're not expecting
   [ P_STATE_ESC, r(92, 255), P_STATE_GROUND, action_fail                      ],
 
@@ -422,9 +547,17 @@ table = [
   # https://en.wikipedia.org/wiki/ANSI_escape_code#Control_Sequence_Introducer_commands#Control_Sequence_Introducer_commands
   # for information on how to interpret these.
 
-  [ P_STATE_CSI, r(0  , 62), P_STATE_GROUND    , action_fail ],
-  [ P_STATE_CSI, [ 63 ]    , P_STATE_CSI_PARAMS, action_csi_chomp_start_initial_char ],
-  [ P_STATE_CSI, r(64, 255), P_STATE_GROUND    , action_fail ],
+  # Got something miscelanious
+  [ P_STATE_CSI, r(0  , 47)       , P_STATE_GROUND, action_fail               ],
+  # Got a character 0-9.
+  [ P_STATE_CSI, r(48 , 57), P_STATE_CSI_PARAMS, action_csi_chomp_param       ],
+  # Got something miscelanious
+  [ P_STATE_CSI, r(58 , 62)       , P_STATE_GROUND, action_fail               ],
+  # Got a '?' has the initial char
+  [ P_STATE_CSI, [ 63 ], P_STATE_CSI_PARAMS, action_csi_chomp_initial_char ],
+  # Got a "final byte".
+  [ P_STATE_CSI_PARAMS, r(64, 126), P_STATE_GROUND, action_csi_chomp_final_byte],
+  [ P_STATE_CSI, r(127, 255)      , P_STATE_GROUND, action_fail               ],
 
 
   ######################
@@ -436,7 +569,7 @@ table = [
   [ P_STATE_CSI_PARAMS, r(48, 57),   P_STATE_CSI_PARAMS, action_csi_chomp_param],
   # Got something unexpected
   [ P_STATE_CSI_PARAMS, r(58, 63),   P_STATE_GROUND, action_fail              ],
-  # Go a "final byte"final byte"" signaling the the ANSI escape sequence is now over
+  # Go a "final byte"final byte" signaling the the ANSI escape sequence is now over
   [ P_STATE_CSI_PARAMS, r(64, 126),  P_STATE_GROUND, action_csi_chomp_final_byte],
   # Got something unexpected
   [ P_STATE_CSI_PARAMS, [127]      , P_STATE_GROUND, action_fail              ],
@@ -481,7 +614,7 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_backspace, },
     { .new_state = P_STATE_GROUND,
       .action = &action_tabstop, },
     { .new_state = P_STATE_GROUND,
@@ -2695,37 +2828,7 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_CSI,
-      .action = &action_noop, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_start, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
@@ -3151,7 +3254,25 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_CSI_PARAMS,
-      .action = &action_csi_chomp_start_initial_char, },
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_param, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
@@ -3162,122 +3283,134 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_chomp_final_byte, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_csi_chomp_final_byte, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_csi_chomp_final_byte, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_csi_chomp_final_byte, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_csi_chomp_final_byte, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_csi_chomp_final_byte, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
