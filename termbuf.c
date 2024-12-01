@@ -193,38 +193,94 @@ void action_print(struct termbuf *tb, char ch) {
     termbuf_insert(tb, (uint8_t *) &ch, 1);
 }
 
-// handles '\b'
-void action_backspace(struct termbuf *tb, char ch) {
-    assert(tb->col >= 1);
-    tb->col --;
-}
-
-// handles '\t'
-void action_tabstop(struct termbuf *tb, char ch) {
-    // and-ing with this bitmasks truncates the number to be multiple of 8 (+1)
-    // (assuming the current column is smaller than 2^16 - 1).
-    tb->col = ((tb->col + 8) & 0b1111111111110000) + 1;
-    if (tb->col > tb->ncols) {
-        tb->col = 1;
+// Invoked by the parser to handle most C0 control sequences.
+// Notably it is not meant to handle ESC.
+// Also does not handle 32 space or 127 delete.
+void action_c0(struct termbuf *tb, char ch) {
+    switch (ch) {
+    case '\0':  // NULL.
+        assert(false);
+    case 1:  // Start of heading.
+        assert(false);
+    case 2:  // Start of text.
+        assert(false);
+    case 3:  // End of text.
+        assert(false);
+    case 4:  // End of transmission.
+        assert(false);
+    case 5:  // Enquiry.
+        assert(false);
+    case 6:  // Acknowlegde.
+        assert(false);
+    case '\a':  // Bell.
+        assert(false);
+    case '\b':  // Backspace.
+        assert(tb->col >= 1);
+        tb->col --;
+        return;
+    case '\t':  // Tab stop.
+        // and-ing with this bitmasks truncates the number to be multiple of 8 (+1)
+        // (assuming the current column is smaller than 2^16 - 1).
+        tb->col = ((tb->col + 8) & 0b1111111111110000) + 1;
+        if (tb->col > tb->ncols) {
+            tb->col = 1;
+            tb->row ++;
+            if (tb->row > tb->nrows) {
+                //assert(false);
+                tb->row = 1;
+            }
+        }
+        return;
+    case '\n':  // Line feed.
         tb->row ++;
-        if (tb->row > tb->nrows) {
+        if (tb-> row > tb->nrows) {
             //assert(false);
             tb->row = 1;
         }
-    }
-}
-
-// handles '\r'
-void action_carige_return(struct termbuf *tb, char ch) {
-    tb->col = 1;
-}
-
-// handles '\n'
-void action_line_feed(struct termbuf *tb, char ch) {
-    tb->row ++;
-    if (tb-> row > tb->nrows) {
-        //assert(false);
-        tb->row = 1;
+        return;
+    case '\v':  // Line tabulation.
+        assert(false);
+    case '\f':  // Form feed.
+        assert(false);
+    case '\r':  // Carrige return.
+        tb->col = 1;
+        return;
+    case 14:  // Shift out.
+        assert(false);
+    case 15:  // Shift in.
+        assert(false);
+    case 16:  // Data line escape.
+        assert(false);
+    case 17:  // Device control 1.
+        assert(false);
+    case 18:  // Device control 2.
+        assert(false);
+    case 19:  // Device control 3.
+        assert(false);
+    case 20:  // Device control 4.
+        assert(false);
+    case 21:  // Negative acknowlegde.
+        assert(false);
+    case 22:  // Synchronous Idle.
+        assert(false);
+    case 23:  // End of transmission block.
+        assert(false);
+    case 24:  // Cancel.
+        assert(false);
+    case 25:  // End of medium.
+        assert(false);
+    case 26:  // Substitute.
+        assert(false);
+    case 27:  // Escape.
+        assert(false);
+    case 28:  // File separator.
+        assert(false);
+    case 29:  // Group separator.
+        assert(false);
+    case 30:  // Record separator.
+        assert(false);
+    case 31:  // Unit separator.
+        assert(false);
     }
 }
 
@@ -431,10 +487,7 @@ P_STATE_CSI_PARAMS    = "P_STATE_CSI_PARAMS"
 action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
-action_backspace           = "action_backspace"
-action_tabstop             = "action_tabstop"
-action_carige_return       = "action_carige_return"
-action_line_feed           = "action_line_feed"
+action_c0                  = "action_c0"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
 action_utf8_chomp_continue = "action_utf8_chomp_continue"
 action_utf8_chomp_end      = "action_utf8_chomp_end"
@@ -447,24 +500,12 @@ table = [
   ##################
   # P_STATE_GROUND #
   ##################
-  # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(0  , 7  ), P_STATE_GROUND, action_fail                  ],
-  # Got a backspace '\b'
-  [ P_STATE_GROUND, [ 8 ]      , P_STATE_GROUND, action_backspace             ],
-  # Got a tabstop '\t'
-  [ P_STATE_GROUND, [ 9 ]      , P_STATE_GROUND, action_tabstop               ],
-  # Got a line feed '\n'
-  [ P_STATE_GROUND, [ 10 ]     , P_STATE_GROUND, action_line_feed             ],
-  # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, [ 11, 12 ] , P_STATE_GROUND, action_fail                  ],
-  # Got a carrige return '\r'
-  [ P_STATE_GROUND, [ 13 ]     , P_STATE_GROUND, action_carige_return         ],
-  # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(14 , 26 ), P_STATE_GROUND, action_fail                  ],
+  # Got a non-ESC C0 control character.
+  [ P_STATE_GROUND, r(0  , 26 ), P_STATE_GROUND, action_c0                    ],
   # Got the C0 control character "ESC".
   [ P_STATE_GROUND, [ 27 ]     , P_STATE_ESC   , action_noop                  ],
-  # Got a miscelanious C0 control character.
-  [ P_STATE_GROUND, r(28 , 31 ),   P_STATE_GROUND, action_fail                ],
+  # Got a non-ESC C0 control character.
+  [ P_STATE_GROUND, r(28 , 31 ), P_STATE_GROUND, action_c0                    ],
   # Got an printable ASCII character / single-byte utf8.
   [ P_STATE_GROUND, r(32 , 126), P_STATE_GROUND, action_print                 ],
   # Got the _almost_ C0 control character "DEL".
@@ -605,69 +646,69 @@ if n % 256 != 0:
 ]]]*/
 struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_backspace, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_tabstop, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_line_feed, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_carige_return, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_ESC,
       .action = &action_noop, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
       .action = &action_print, },
     { .new_state = P_STATE_GROUND,
