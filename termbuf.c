@@ -261,7 +261,7 @@ void action_csi_chomp_start(struct termbuf *tb, char ch) {
     tb->p_data.ansi_csi_chomping = (struct ansi_csi_chomping) {
         .initial_char    = '\0',
         .current_param = 0,
-        .params          = { 0, 0, 0 },
+        .params          = { -1, -1, -1 },
     };
 }
 
@@ -274,6 +274,11 @@ void action_csi_chomp_param(struct termbuf *tb, char ch) {
     assert('0' <= ch && ch <= '9');
 
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+
+    if (data->params[data->current_param] == (uint16_t) -1) {
+        data->params[data->current_param] = 0;
+    }
+
     data->params[data->current_param] *= 10;
     data->params[data->current_param] += ch - '0';
 }
@@ -284,10 +289,8 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
     uint8_t ic  = data->initial_char;
 
-    // TODO: Uuuh this is some wier logic I should explain why this is done at
-    // some pont.
     uint8_t len = data->current_param + 1;
-    if (data->params[data->current_param] == 0) {
+    if (data->params[data->current_param] == (uint16_t) -1) {
         len --;
     }
 
@@ -337,7 +340,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     }
 
     // ESC 0 J, ED, erase display from cursor to end of scree.
-    if (ch == 'J' && (len == 0 || len == 1) && p1 == 0) {
+    if (ch == 'J' && (len == 0 || (len == 1 && p1 == -1))) {
         // TODO
         assert(false);
     }
@@ -361,7 +364,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     }
 
     // ESC 0 K, EL, erase line from cursor to end of line.
-    if (ch == 'K' && (len == 0 || len == 1) && p1 == 0) {
+    if (ch == 'K' && (len == 0 || len == 1)) {
+        p1 = p1 == -1 ? 1 : p1;
+
         memset(tb->buf + ((tb->row - 1) * tb->ncols) + tb->col - 1,
                0,
                (tb->ncols - tb->col + 1) * sizeof(struct termbuf_char));
@@ -397,12 +402,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
            "    ch            : '%c' (decimal %d).\n"
            "    initial_char  : '%c' (decimal %d).\n"
            "    current_param : %d.\n"
+           "    len           : %d.\n"
            "    param1        : %d.\n"
            "    param2        : %d.\n"
            "    param3        : %d.\n",
            ch, ch,
            ic, ic,
            data->current_param,
+           len,
            p1, p2, p3);
     assert(false);
 }

@@ -56,6 +56,9 @@ union parser_data {
     struct ansi_csi_chomping {
         uint8_t  initial_char;  // one of '\0' (no initial char) or '?'
         uint8_t  current_param;
+        // if a param is -1 (i.e. largest uint16_t) then we interpret it as
+        // missing, for instance ESC[;10H would give something like:
+        // `params = { -1, 10, -1}
         uint16_t params[3];
     } ansi_csi_chomping;
 };
