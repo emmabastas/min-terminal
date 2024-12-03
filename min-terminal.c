@@ -8,17 +8,21 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <assert.h>
+
 #include <X11/Xlib.h>
 #include <X11/Xft/Xft.h>
 
-#include "ringbuf.h"
-#include "termbuf.h"
+#include "./font.h"
+#include "./ringbuf.h"
+#include "./termbuf.h"
 
 #define RINGBUF_CAPACITY 1024
 
 Display *display;
 int window;
 int screen;
+
+GC gc;
 
 XftDraw *draw;
 XftFont *font = NULL;
@@ -46,53 +50,13 @@ void render() {
 
     XRenderColor fg;
     XftColor color_foreground;
-    GC gc = XCreateGC(display,
-                      window,
-                      0,
-                      NULL);
 
     for (int row = 1; row <= tb.nrows; row ++) {
         for (int col = 1; col <= tb.ncols; col ++) {
             struct termbuf_char *c =
                 tb.buf + (row - 1) * tb.ncols + col - 1;
 
-            XSetForeground(display, gc,
-                           (c->bg_color_r << 16)
-                           + (c->bg_color_g << 8)
-                           + c->bg_color_b);
-
-            XFillRectangle(
-                display,
-                window,
-                gc,
-                (col - 1) * cell_width,
-                (row - 1) * cell_height,
-                cell_width,
-                cell_height);
-
-            if (c->flags & FLAG_LENGTH_MASK == FLAG_LENGTH_0) {
-                continue;
-            }
-
-            fg = (XRenderColor) { c->fg_color_r << 8,
-                                  c->fg_color_g << 8,
-                                  c->fg_color_b << 8,
-                                  65535 };
-
-            XftColorAllocValue(
-                display,
-                DefaultVisual(display, screen),
-                DefaultColormap(display, screen), &fg,
-                &color_foreground);
-
-            XftDrawStringUtf8(
-              draw,
-              &color_foreground,
-              font,
-              (col - 1) * cell_width,
-              (row - 1) * cell_height + cell_height,
-              (XftChar8 *) c,
-              c->flags & FLAG_LENGTH_MASK);
+            font_render(0, 0, row, col, c);
         }
     }
 }
@@ -231,6 +195,79 @@ int exec_shell(char *cmd, char **args)
 }
 
 int main() {
+    display = XOpenDisplay(NULL);
+    if (!display) { assert(false); }
+
+    screen = DefaultScreen(display);
+    int root = DefaultRootWindow(display);
+
+    const int SCREEN_WIDTH = 800;
+    const int SCREEN_HEIGHT = 400;
+
+    XSetWindowAttributes win_attributes;
+    win_attributes.override_redirect = True;
+    win_attributes.background_pixel = 0x505050;
+    win_attributes.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask | StructureNotifyMask;
+    window = XCreateWindow(
+        display,           // display
+        root,              // root
+        0,                 // x
+        0,                 // y
+        SCREEN_WIDTH,      // width
+        SCREEN_HEIGHT,     // height
+        0,                 // border_width
+        CopyFromParent,    // depth
+        CopyFromParent,    // class
+        CopyFromParent,    // visual
+        CWOverrideRedirect | CWBackPixel | CWEventMask, // valuemask
+        &win_attributes);  // attributes
+
+    // Get the window onto the display
+    XMapRaised(display, window);
+
+    XSetInputFocus(display, window, RevertToParent, CurrentTime);
+
+    // Make a draw (whatever that is?)
+    draw = XftDrawCreate(
+        display,
+        window,
+        DefaultVisual(display, screen),
+        DefaultColormap(display, screen));
+
+    // Specify the font
+    font = XftFontOpenName(display, screen, "FiraCode Nerd Font");
+    if (font == NULL) {
+        assert(false);
+    }
+
+    gc = XCreateGC(display,
+                      window,
+                      0,
+                      NULL);
+
+    // Make an input context, used later to decode keypresses
+
+    XIM input_method = XOpenIM(display, NULL, NULL, NULL);
+    if (input_method == NULL) {
+      fprintf(stderr, "XOpenIM failed: could not open input device");
+      return 1;
+    }
+
+    input_context = XCreateIC(
+      input_method,
+      XNInputStyle,
+      XIMPreeditNothing | XIMStatusNothing,
+      XNClientWindow,
+      window,
+      XNFocusWindow,
+      window,
+      NULL);
+
+    int nrows, ncols;
+
+    font_initialize(display, window, gc);
+    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 32, &nrows, &ncols);
+
     primary_pty_fd = posix_openpt(O_RDWR);
     if (primary_pty_fd == -1) {
         assert(false);
@@ -252,9 +289,6 @@ int main() {
         assert(false);
     }
     printf("The pty is in %s.\n", primary_pty_name);
-
-    const int NROWS = 18;
-    const int NCOLS = 44;
 
     pid_t pid = fork();
     if (pid < 0) {
@@ -286,8 +320,8 @@ int main() {
 
         // Set the dimensions of the terminal
         struct winsize ws = {
-            .ws_row = NROWS,
-            .ws_col = NCOLS,
+            .ws_row = nrows,
+            .ws_col = ncols,
             .ws_xpixel = 0,  // unused.
             .ws_ypixel = 0,  // unused.
         };
@@ -313,67 +347,7 @@ int main() {
         assert(false);
     }
 
-    termbuf_initialize(NROWS, NCOLS, &tb);
-
-    display = XOpenDisplay(NULL);
-    if (!display) { assert(false); }
-
-    screen = DefaultScreen(display);
-    int root = DefaultRootWindow(display);
-
-    XSetWindowAttributes win_attributes;
-    win_attributes.override_redirect = True;
-    win_attributes.background_pixel = 0x505050;
-    win_attributes.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask | StructureNotifyMask;
-    window = XCreateWindow(
-        display,           // display
-        root,              // root
-        0,                 // x
-        0,                 // y
-        800,               // width
-        400,               // height
-        0,                 // border_width
-        CopyFromParent,    // depth
-        CopyFromParent,    // class
-        CopyFromParent,    // visual
-        CWOverrideRedirect | CWBackPixel | CWEventMask, // valuemask
-        &win_attributes);  // attributes
-
-    // Get the window onto the display
-    XMapRaised(display, window);
-
-    XSetInputFocus(display, window, RevertToParent, CurrentTime);
-
-    // Make a draw (whatever that is?)
-    draw = XftDrawCreate(
-        display,
-        window,
-        DefaultVisual(display, screen),
-        DefaultColormap(display, screen));
-
-    // Specify the font
-    font = XftFontOpenName(display, screen, "FiraCode Nerd Font");
-    if (font == NULL) {
-        assert(false);
-    }
-
-    // Make an input context, used later to decode keypresses
-
-    XIM input_method = XOpenIM(display, NULL, NULL, NULL);
-    if (input_method == NULL) {
-      fprintf(stderr, "XOpenIM failed: could not open input device");
-      return 1;
-    }
-
-    input_context = XCreateIC(
-      input_method,
-      XNInputStyle,
-      XIMPreeditNothing | XIMStatusNothing,
-      XNClientWindow,
-      window,
-      XNFocusWindow,
-      window,
-      NULL);
+    termbuf_initialize(nrows, ncols, &tb);
 
     run_all_tests();
 

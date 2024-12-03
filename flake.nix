@@ -30,7 +30,7 @@
               cpplint
               xorg.libX11
               xorg.libXft
-              xclip
+              harfbuzz
               (pkgs.python3.withPackages (python-pkgs: [
                 python-pkgs.cogapp
               ]))
