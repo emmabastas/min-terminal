@@ -14,6 +14,33 @@
 
 
 
+// According to the standard there are 8 foreground and 8 background colors that
+// are predetermined (though configurable by the user). You select these colors
+// via SRG parameters 30-37 for foreground colors, and 40-47 for background
+// colors. For instance ESC[31;42m sets the foreground to clolor 1 and
+// background to color 2.
+const uint8_t three_bit_fg_colors[8 * 3] = {
+    0  , 0  , 0  ,  // 31 Black.
+    153, 0  , 0  ,
+    0  , 166, 0  ,
+    153, 153, 153,
+    0  , 0  , 178,
+    178, 0  , 178,
+    0  , 166, 178,
+    191, 191, 191,
+    // bright variants
+    //102, 102, 102,
+    //230, 0  , 0  ,
+    //0  , 217, 0  ,
+    //230, 230, 0  ,
+    //0  , 0  , 255,
+    //230, 0  , 230,
+    //0  , 230, 230,
+    //230, 230, 230,
+};
+
+
+
 void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret) {
     assert(nrows > 0);
     assert(ncols > 0);
@@ -275,6 +302,14 @@ void action_csi_chomp_param(struct termbuf *tb, char ch) {
     data->params[data->current_param] += ch - '0';
 }
 
+void action_csi_chomp_next_param(struct termbuf *tb, char ch) {
+    assert(ch == ';');
+
+    struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+    assert(data->current_param <= 1);
+    data->current_param ++;
+}
+
 void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     assert('@' <= ch && ch <= '~');
 
@@ -389,6 +424,242 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // We got a so called select graphics rendition (SRG)
+    // https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
+    if (ch == 'm') {
+        // ESC[m, or ESC[0m, reset
+        if (len == 0 || (len == 1 && p1 == 0)) {
+            tb->flags == 0;
+            return;
+        }
+
+        // We got something else, iterate through each parameter
+        for (int i = 0; i < len; i++) {
+            int param = data->params[i];
+            switch (param) {
+            case 1:  // Bold.
+                tb->flags |= FLAG_BOLD;
+                continue;
+            case 2:  // Faint.
+                tb->flags |= FLAG_FAINT;
+                continue;
+            case 3:  // Italic.
+                tb->flags |= FLAG_ITALIC;
+                continue;
+            case 4:  // Underline.
+                tb->flags |= FLAG_UNDERLINE;
+                continue;
+            case 5:  // Slow blink.
+                assert(false);
+            case 6:  // Rapid blink.
+                assert(false);
+            case 7:  // Swap foreground and background colors.
+                assert(false);
+            case 8:  // Invisible text.
+                assert(false);
+            case 9:  // Strikeout.
+                assert(false);
+            case 10:  // Prmiary font.
+                assert(false);
+            case 11:  //  Alernative font 1.
+                assert(false);
+            case 12:  //  Alernative font 2.
+                assert(false);
+            case 13:  //  Alernative font 3.
+                assert(false);
+            case 14:  //  Alernative font 4.
+                assert(false);
+            case 15:  //  Alernative font 5.
+                assert(false);
+            case 16:  //  Alernative font 6.
+                assert(false);
+            case 17:  //  Alernative font 7.
+                assert(false);
+            case 18:  //  Alernative font 8.
+                assert(false);
+            case 19:  //  Alernative font 9.
+                assert(false);
+            case 20:  // Fraktur font.
+                assert(false);
+            case 21:  // Doubly underlined or not bold.
+                assert(false);
+            case 22:  // Neither bold nor faint.
+                assert(false);
+            case 23:  // Neither italic "blackletter". (?)
+                assert(false);
+            case 24:  // Not underlined.
+                assert(false);
+            case 25:  // Not blinking.
+                assert(false);
+            case 26:  // Proportional spacing (not known to be used on terms).
+                assert(false);
+            case 27:  // Not reversed (i.e. stop swapping bg and fg colors?).
+                assert(false);
+            case 28:  // Not concealed.
+                assert(false);
+            case 29:  // Not crossed out.
+                assert(false);
+            case 30:  // Foreground color 1.
+            case 31:  // Foreground color 2.
+            case 32:  // Foreground color 3.
+            case 33:  // Foreground color 4.
+            case 34:  // Foreground color 5.
+            case 35:  // Foreground color 7.
+            case 36:  // Foreground color 7.
+            case 37:  // Foreground color 8.
+                {
+                    int i = param - 30;
+                    assert(0 <= i && i <= 8);
+                    tb->fg_color_r = three_bit_fg_colors[i * 3];
+                    tb->fg_color_g = three_bit_fg_colors[i * 3 + 1];
+                    tb->fg_color_b = three_bit_fg_colors[i * 3 + 2];
+                    continue;
+                }
+            case 38:  // Wierd set foregound color ??
+                assert(false);
+            case 39:  // Default foreground color.
+                assert(false);
+            case 40:  // Background color 1.
+                assert(false);
+            case 41:  // Background color 1.
+                assert(false);
+            case 42:  // Background color 1.
+                assert(false);
+            case 43:  // Background color 1.
+                assert(false);
+            case 44:  // Background color 1.
+                assert(false);
+            case 45:  // Background color 1.
+                assert(false);
+            case 46:  // Background color 1.
+                assert(false);
+            case 47:  // Background color 1.
+                assert(false);
+            case 48:  // Wierd background color ??
+                assert(false);
+            case 49:  // Defailt background color.
+                assert(false);
+            case 50:
+                assert(false);
+            case 51:
+                assert(false);
+            case 52:
+                assert(false);
+            case 53:
+                assert(false);
+            case 54:
+                assert(false);
+            case 55:
+                assert(false);
+            case 56:
+                assert(false);
+            case 57:
+                assert(false);
+            case 58:
+                assert(false);
+            case 59:
+                assert(false);
+            case 60:
+                assert(false);
+            case 61:
+                assert(false);
+            case 62:
+                assert(false);
+            case 63:
+                assert(false);
+            case 64:
+                assert(false);
+            case 65:
+                assert(false);
+            case 66:
+                assert(false);
+            case 67:
+                assert(false);
+            case 68:
+                assert(false);
+            case 69:
+                assert(false);
+            case 70:
+                assert(false);
+            case 71:
+                assert(false);
+            case 72:
+                assert(false);
+            case 73:
+                assert(false);
+            case 74:
+                assert(false);
+            case 75:
+                assert(false);
+            case 76:
+                assert(false);
+            case 77:
+                assert(false);
+            case 78:
+                assert(false);
+            case 79:
+                assert(false);
+            case 80:
+                assert(false);
+            case 81:
+                assert(false);
+            case 82:
+                assert(false);
+            case 83:
+                assert(false);
+            case 84:
+                assert(false);
+            case 85:
+                assert(false);
+            case 86:
+                assert(false);
+            case 87:
+                assert(false);
+            case 88:
+                assert(false);
+            case 89:
+                assert(false);
+            case 90:
+                assert(false);
+            case 91:
+                assert(false);
+            case 92:
+                assert(false);
+            case 93:
+                assert(false);
+            case 94:
+                assert(false);
+            case 95:
+                assert(false);
+            case 96:
+                assert(false);
+            case 97:
+                assert(false);
+            case 98:
+                assert(false);
+            case 99:
+                assert(false);
+            case 100:
+                assert(false);
+            case 101:
+                assert(false);
+            case 102:
+                assert(false);
+            case 103:
+                assert(false);
+            case 104:
+                assert(false);
+            case 105:
+                assert(false);
+            case 106:
+                assert(false);
+            case 107:
+                assert(false);
+            }
+        }
+        return;
+    }
+
     // It's an escape sequence unknown to us.
     printf("Got an unknown ANSI escape sequence with:\n"
            "    ch            : '%c' (decimal %d).\n"
@@ -430,6 +701,7 @@ action_utf8_chomp_end      = "action_utf8_chomp_end"
 action_csi_chomp_start     = "action_csi_chomp_start"
 action_csi_chomp_initial_char = "action_csi_chomp_initial_char"
 action_csi_chomp_param        = "action_csi_chomp_param"
+action_csi_chomp_next_param   = "action_csi_chomp_next_param"
 action_csi_chomp_final_byte   = "action_csi_chomp_final_byte"
 
 table = [
@@ -548,11 +820,15 @@ table = [
   # P_STATE_CSI_PARAMS #
   ######################
   # Got something unexpected
-  [ P_STATE_CSI_PARAMS, r(0, 47),    P_STATE_GROUND, action_fail              ],
+  [ P_STATE_CSI_PARAMS, r(0, 47) ,   P_STATE_GROUND, action_fail              ],
   # We got a number!
-  [ P_STATE_CSI_PARAMS, r(48, 57),   P_STATE_CSI_PARAMS, action_csi_chomp_param],
+  [ P_STATE_CSI_PARAMS, r(48, 57), P_STATE_CSI_PARAMS, action_csi_chomp_param],
   # Got something unexpected
-  [ P_STATE_CSI_PARAMS, r(58, 63),   P_STATE_GROUND, action_fail              ],
+  [ P_STATE_CSI_PARAMS, [58]     ,   P_STATE_GROUND, action_fail              ],
+  # Got something unexpected
+  # Got a ';', meaning we should start chomping a new parameter.
+  [ P_STATE_CSI_PARAMS, [59], P_STATE_CSI_PARAMS, action_csi_chomp_next_param ],
+  [ P_STATE_CSI_PARAMS, r(60, 63), P_STATE_GROUND, action_fail              ],
   # Go a "final byte"final byte" signaling the the ANSI escape sequence is now over
   [ P_STATE_CSI_PARAMS, r(64, 126),  P_STATE_GROUND, action_csi_chomp_final_byte],
   # Got something unexpected
@@ -3771,8 +4047,8 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
       .action = &action_csi_chomp_param, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_next_param, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
