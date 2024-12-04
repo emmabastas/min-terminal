@@ -769,6 +769,11 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         // ESC[m, or ESC[0m, reset
         if (len == 0 || (len == 1 && p1 == 0)) {
             tb->flags == 0;
+
+            // Set foreground to "bright white"
+            tb->fg_color_r = four_bit_fg_colors[15 * 3];
+            tb->fg_color_g = four_bit_fg_colors[15 * 3 + 1];
+            tb->fg_color_b = four_bit_fg_colors[15 * 3 + 2];
             return;
         }
 
