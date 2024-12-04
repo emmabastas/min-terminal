@@ -186,7 +186,8 @@ void action_c0(struct termbuf *tb, char ch) {
     case 6:  // Acknowlegde.
         assert(false);
     case '\a':  // Bell.
-        assert(false);
+        // We don't want any type of bell thing to happen
+        return;
     case '\b':  // Backspace.
         assert(tb->col >= 1);
         tb->col --;
