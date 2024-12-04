@@ -332,8 +332,10 @@ void termbuf_initialize(int nrows,
     }
 }
 
-void advance_cursor(struct termbuf *tb) {
-    tb->col ++;
+void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
+    assert(len > 0);
+    assert(len <= 4);
+
     if (tb->col > tb->ncols) {
         tb->col = 1;
         tb->row ++;
@@ -342,11 +344,6 @@ void advance_cursor(struct termbuf *tb) {
             termbuf_shift(tb);
         }
     }
-}
-
-void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
-    assert(len > 0);
-    assert(len <= 4);
 
     size_t index = (tb->row - 1) * tb->ncols + (tb -> col - 1);
     memcpy(tb->buf[index].utf8_char, utf8_char, 4);
@@ -360,7 +357,9 @@ void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
     tb->buf[index].bg_color_g = tb->bg_color_g;
     tb->buf[index].bg_color_b = tb->bg_color_b;
 
-    advance_cursor(tb);
+    // NB. Here we might end up setting the cursor just outside of the view,
+    //     hence the check at the begining of this function.
+    tb->col ++;
 }
 
 void termbuf_shift(struct termbuf *tb) {
@@ -647,15 +646,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // Now commes a big task of figuring out what the parsed ANSI escape sequnce
     // means.
 
-    // ESC n ; m H, CUP, set cursor position
-    if (ch == 'H' && len <= 2) {
-        p1 = p1 == -1 ? 1 : p1;
-        p2 = p2 == -1 ? 1 : p2;
-        tb->row = p1;
-        tb->col = p2;
-        return;
-    }
-
     // ESC n A, CUU, move cursor up
     if (ch == 'A' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
@@ -682,6 +672,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     if (ch == 'D' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
         tb->col = tb->col - n < 1 ? 1 : tb->col - n;
+        return;
+    }
+
+    // ESC n ; m H, CUP, set cursor position
+    if (ic == '\0' && ch == 'H' && len <= 2) {
+        p1 = p1 == -1 ? 1 : p1;
+        p2 = p2 == -1 ? 1 : p2;
+        tb->row = p1;
+        tb->col = p2;
         return;
     }
 
