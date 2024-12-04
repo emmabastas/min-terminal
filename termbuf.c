@@ -19,7 +19,7 @@
 // via SRG parameters 30-37 for foreground colors, and 40-47 for background
 // colors. For instance ESC[31;42m sets the foreground to clolor 1 and
 // background to color 2.
-const uint8_t three_bit_fg_colors[8 * 3] = {
+const uint8_t four_bit_fg_colors[16 * 3] = {
     0  , 0  , 0  ,  // 31 Black.
     153, 0  , 0  ,
     0  , 166, 0  ,
@@ -29,14 +29,14 @@ const uint8_t three_bit_fg_colors[8 * 3] = {
     0  , 166, 178,
     191, 191, 191,
     // bright variants
-    //102, 102, 102,
-    //230, 0  , 0  ,
-    //0  , 217, 0  ,
-    //230, 230, 0  ,
-    //0  , 0  , 255,
-    //230, 0  , 230,
-    //0  , 230, 230,
-    //230, 230, 230,
+    102, 102, 102,
+    230, 0  , 0  ,
+    0  , 217, 0  ,
+    230, 230, 0  ,
+    0  , 0  , 255,
+    230, 0  , 230,
+    0  , 230, 230,
+    230, 230, 230,
 };
 
 
@@ -510,9 +510,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 30;
                     assert(0 <= i && i <= 8);
-                    tb->fg_color_r = three_bit_fg_colors[i * 3];
-                    tb->fg_color_g = three_bit_fg_colors[i * 3 + 1];
-                    tb->fg_color_b = three_bit_fg_colors[i * 3 + 2];
+                    tb->fg_color_r = four_bit_fg_colors[i * 3];
+                    tb->fg_color_g = four_bit_fg_colors[i * 3 + 1];
+                    tb->fg_color_b = four_bit_fg_colors[i * 3 + 2];
                     continue;
                 }
             case 38:  // Wierd set foregound color ??
@@ -619,22 +619,22 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 assert(false);
             case 89:
                 assert(false);
-            case 90:
-                assert(false);
-            case 91:
-                assert(false);
-            case 92:
-                assert(false);
-            case 93:
-                assert(false);
-            case 94:
-                assert(false);
-            case 95:
-                assert(false);
-            case 96:
-                assert(false);
-            case 97:
-                assert(false);
+            case 90:  // Set bright foregrund color 1.
+            case 91:  // Set bright foregrund color 1.
+            case 92:  // Set bright foregrund color 1.
+            case 93:  // Set bright foregrund color 1.
+            case 94:  // Set bright foregrund color 1.
+            case 95:  // Set bright foregrund color 1.
+            case 96:  // Set bright foregrund color 1.
+            case 97:  // Set bright foregrund color 1.
+                {
+                    int i = param - 90;
+                    assert(0 <= i && i <= 8);
+                    tb->fg_color_r = four_bit_fg_colors[(i + 8) * 3];
+                    tb->fg_color_g = four_bit_fg_colors[(i + 8) * 3 + 1];
+                    tb->fg_color_b = four_bit_fg_colors[(i + 8) * 3 + 2];
+                    continue;
+                }
             case 98:
                 assert(false);
             case 99:
