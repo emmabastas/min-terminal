@@ -353,7 +353,7 @@ int main() {
         assert(false);
     }
 
-    termbuf_initialize(nrows, ncols, &tb);
+    termbuf_initialize(nrows, ncols, primary_pty_fd, &tb);
 
     run_all_tests();
 

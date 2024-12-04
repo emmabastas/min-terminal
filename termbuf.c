@@ -1,5 +1,6 @@
 #include "termbuf.h"
 
+#include <unistd.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <X11/Xlib.h>
@@ -39,9 +40,271 @@ const uint8_t four_bit_fg_colors[16 * 3] = {
     230, 230, 230,
 };
 
+const uint8_t eight_bit_fg_colors[256 * 3] = {
+    0, 0, 0,
+    128, 0, 0,
+    0, 128, 0,
+    128, 128, 0,
+    0, 0, 128,
+    128, 0, 128,
+    0, 128, 128,
+    192, 192, 192,
+    128, 128, 128,
+    255, 0, 0,
+    0, 255, 0,
+    255, 255, 0,
+    0, 0, 255,
+    255, 0, 255,
+    0, 255, 255,
+    255, 255, 255,
+    0, 0, 0,
+    0, 0, 95,
+    0, 0, 135,
+    0, 0, 175,
+    0, 0, 215,
+    0, 0, 255,
+    95, 0, 0,
+    95, 0, 95,
+    95, 0, 135,
+    95, 0, 175,
+    95, 0, 215,
+    95, 0, 255,
+    135, 0, 0,
+    135, 0, 95,
+    135, 0, 135,
+    135, 0, 175,
+    135, 0, 215,
+    135, 0, 255,
+    175, 0, 0,
+    175, 0, 95,
+    175, 0, 135,
+    175, 0, 175,
+    175, 0, 215,
+    175, 0, 255,
+    215, 0, 0,
+    215, 0, 95,
+    215, 0, 135,
+    215, 0, 175,
+    215, 0, 215,
+    215, 0, 255,
+    255, 0, 0,
+    255, 0, 95,
+    255, 0, 135,
+    255, 0, 175,
+    255, 0, 215,
+    255, 0, 255,
+    0, 95, 0,
+    0, 95, 95,
+    0, 95, 135,
+    0, 95, 175,
+    0, 95, 215,
+    0, 95, 255,
+    95, 95, 0,
+    95, 95, 95,
+    95, 95, 135,
+    95, 95, 175,
+    95, 95, 215,
+    95, 95, 255,
+    135, 95, 0,
+    135, 95, 95,
+    135, 95, 135,
+    135, 95, 175,
+    135, 95, 215,
+    135, 95, 255,
+    175, 95, 0,
+    175, 95, 95,
+    175, 95, 135,
+    175, 95, 175,
+    175, 95, 215,
+    175, 95, 255,
+    215, 95, 0,
+    215, 95, 95,
+    215, 95, 135,
+    215, 95, 175,
+    215, 95, 215,
+    215, 95, 255,
+    255, 95, 0,
+    255, 95, 95,
+    255, 95, 135,
+    255, 95, 175,
+    255, 95, 215,
+    255, 95, 255,
+    0, 135, 0,
+    0, 135, 95,
+    0, 135, 135,
+    0, 135, 175,
+    0, 135, 215,
+    0, 135, 255,
+    95, 135, 0,
+    95, 135, 95,
+    95, 135, 135,
+    95, 135, 175,
+    95, 135, 215,
+    95, 135, 255,
+    135, 135, 0,
+    135, 135, 95,
+    135, 135, 135,
+    135, 135, 175,
+    135, 135, 215,
+    135, 135, 255,
+    175, 135, 0,
+    175, 135, 95,
+    175, 135, 135,
+    175, 135, 175,
+    175, 135, 215,
+    175, 135, 255,
+    215, 135, 0,
+    215, 135, 95,
+    215, 135, 135,
+    215, 135, 175,
+    215, 135, 215,
+    215, 135, 255,
+    255, 135, 0,
+    255, 135, 95,
+    255, 135, 135,
+    255, 135, 175,
+    255, 135, 215,
+    255, 135, 255,
+    0, 175, 0,
+    0, 175, 95,
+    0, 175, 135,
+    0, 175, 175,
+    0, 175, 215,
+    0, 175, 255,
+    95, 175, 0,
+    95, 175, 95,
+    95, 175, 135,
+    95, 175, 175,
+    95, 175, 215,
+    95, 175, 255,
+    135, 175, 0,
+    135, 175, 95,
+    135, 175, 135,
+    135, 175, 175,
+    135, 175, 215,
+    135, 175, 255,
+    175, 175, 0,
+    175, 175, 95,
+    175, 175, 135,
+    175, 175, 175,
+    175, 175, 215,
+    175, 175, 255,
+    215, 175, 0,
+    215, 175, 95,
+    215, 175, 135,
+    215, 175, 175,
+    215, 175, 215,
+    215, 175, 255,
+    255, 175, 0,
+    255, 175, 95,
+    255, 175, 135,
+    255, 175, 175,
+    255, 175, 215,
+    255, 175, 255,
+    0, 215, 0,
+    0, 215, 95,
+    0, 215, 135,
+    0, 215, 175,
+    0, 215, 215,
+    0, 215, 255,
+    95, 215, 0,
+    95, 215, 95,
+    95, 215, 135,
+    95, 215, 175,
+    95, 215, 215,
+    95, 215, 255,
+    135, 215, 0,
+    135, 215, 95,
+    135, 215, 135,
+    135, 215, 175,
+    135, 215, 215,
+    135, 215, 255,
+    175, 215, 0,
+    175, 215, 95,
+    175, 215, 135,
+    175, 215, 175,
+    175, 215, 215,
+    175, 215, 255,
+    215, 215, 0,
+    215, 215, 95,
+    215, 215, 135,
+    215, 215, 175,
+    215, 215, 215,
+    215, 215, 255,
+    255, 215, 0,
+    255, 215, 95,
+    255, 215, 135,
+    255, 215, 175,
+    255, 215, 215,
+    255, 215, 255,
+    0, 255, 0,
+    0, 255, 95,
+    0, 255, 135,
+    0, 255, 175,
+    0, 255, 215,
+    0, 255, 255,
+    95, 255, 0,
+    95, 255, 95,
+    95, 255, 135,
+    95, 255, 175,
+    95, 255, 215,
+    95, 255, 255,
+    135, 255, 0,
+    135, 255, 95,
+    135, 255, 135,
+    135, 255, 175,
+    135, 255, 215,
+    135, 255, 255,
+    175, 255, 0,
+    175, 255, 95,
+    175, 255, 135,
+    175, 255, 175,
+    175, 255, 215,
+    175, 255, 255,
+    215, 255, 0,
+    215, 255, 95,
+    215, 255, 135,
+    215, 255, 175,
+    215, 255, 215,
+    215, 255, 255,
+    255, 255, 0,
+    255, 255, 95,
+    255, 255, 135,
+    255, 255, 175,
+    255, 255, 215,
+    255, 255, 255,
+    8, 8, 8,
+    18, 18, 18,
+    28, 28, 28,
+    38, 38, 38,
+    48, 48, 48,
+    58, 58, 58,
+    68, 68, 68,
+    78, 78, 78,
+    88, 88, 88,
+    96, 96, 96,
+    102, 102, 102,
+    118, 118, 118,
+    128, 128, 128,
+    138, 138, 138,
+    148, 148, 148,
+    158, 158, 158,
+    168, 168, 168,
+    178, 178, 178,
+    188, 188, 188,
+    198, 198, 198,
+    208, 208, 208,
+    218, 218, 218,
+    228, 228, 228,
+    238, 238, 238,
+};
 
 
-void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret) {
+
+void termbuf_initialize(int nrows,
+                        int ncols,
+                        int pty_fd,
+                        struct termbuf *tb_ret) {
     assert(nrows > 0);
     assert(ncols > 0);
 
@@ -56,6 +319,10 @@ void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret) {
     tb_ret->bg_color_r = 10;
     tb_ret->bg_color_g = 10;
     tb_ret->bg_color_b = 10;
+    tb_ret->saved_row = -1;
+    tb_ret->saved_col = -1;
+
+    tb_ret->pty_fd = pty_fd;
 
     tb_ret->p_state = P_STATE_GROUND;
 
@@ -170,6 +437,7 @@ void action_print(struct termbuf *tb, char ch) {
 // Notably it is not meant to handle ESC.
 // Also does not handle 32 space or 127 delete.
 void action_c0(struct termbuf *tb, char ch) {
+    assert(0 <= ch && ch <= 31 && ch != '\x1B');
     switch (ch) {
     case '\0':  // NULL.
         assert(false);
@@ -258,6 +526,30 @@ void action_c0(struct termbuf *tb, char ch) {
     }
 }
 
+// Invoked by the parser to handle Fe control sequences.
+// So if we got a sequence "ESC<n> where <n> is a byte in the range 48--63
+// then this function is called.
+void action_fe(struct termbuf *tb, char ch) {
+    assert(48 <= ch && ch <= 63);
+
+    // Save cursor
+    if (ch == '7') {
+        tb->saved_row = tb->row;
+        tb->saved_col = tb->col;
+        return;
+    }
+
+    // Restore cursor
+    if (ch == '8') {
+        assert(tb->saved_row != -1 && tb->saved_row != -1);
+        tb->row = tb->saved_row;
+        tb->col = tb->saved_col;
+        return;
+    }
+
+    assert(false);
+}
+
 void action_utf8_chomp_start(struct termbuf *tb, char ch) {
     tb->p_data.utf8_chomping = (struct utf8_chomping) {
         .len = 1,
@@ -289,10 +581,13 @@ void action_csi_chomp_start(struct termbuf *tb, char ch) {
     assert(ch == '[');
 
     tb->p_data.ansi_csi_chomping = (struct ansi_csi_chomping) {
-        .initial_char    = '\0',
+        .initial_char  = '\0',
         .current_param = 0,
-        .params          = { -1, -1, -1 },
     };
+
+    for (int i = 0; i < CSI_CHOMPING_MAX_PARAMS; i++) {
+        tb->p_data.ansi_csi_chomping.params[i] = -1;
+    }
 }
 
 void action_csi_chomp_initial_char(struct termbuf *tb, char ch) {
@@ -317,7 +612,7 @@ void action_csi_chomp_next_param(struct termbuf *tb, char ch) {
     assert(ch == ';');
 
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
-    assert(data->current_param <= 1);
+    assert(data->current_param <= CSI_CHOMPING_MAX_PARAMS - 2);
     data->current_param ++;
 }
 
@@ -340,11 +635,11 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // means.
 
     // ESC n ; m H, CUP, set cursor position
-    if (ch == 'H') {
-        // TODO: handle
-        assert(len == 0);
-        tb->row = 1;
-        tb->col = 1;
+    if (ch == 'H' && len <= 2) {
+        p1 = p1 == -1 ? 1 : p1;
+        p2 = p2 == -1 ? 1 : p2;
+        tb->row = p1;
+        tb->col = p2;
         return;
     }
 
@@ -379,8 +674,10 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC 0 J, ED, erase display from cursor to end of scree.
     if (ch == 'J' && (len == 0 || (len == 1 && p1 == -1))) {
-        // TODO
-        assert(false);
+        for (int i = tb->col; i <= tb->ncols; i++) {
+            tb->buf[(tb->row - 1) * tb->ncols + i - 1].flags = FLAG_LENGTH_0;
+        }
+        return;
     }
 
     // ESC 1 J, ED, erase display from cursor to begining of screen.
@@ -397,8 +694,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC 3 J, ED, erase entire display and clear the scrollback buffer.
     if (ch == 'J' && len == 1 && p1 == 3) {
-        // TODO
-        assert(false);
+        memset(tb->buf, 0, tb->ncols * tb->nrows * sizeof(struct termbuf_char));
+        printf("TODO: clear scrollback buffer.\n");
+        return;
     }
 
     // ESC 0 K, EL, erase line from cursor to end of line.
@@ -432,6 +730,24 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[?2004l "Turn off bracketed paste mode."
     if (ic == '?' && len == 1 && p1 == 2004 && ch == 'l') {
         tb->flags &= ~FLAG_BRACKETED_PASTE_MODE;
+        return;
+    }
+
+    // ESC[?25h Show the cursor.
+    if (ic == '?' && len == 1 && p1 == 25 && ch == 'h') {
+        tb->flags &= ~FLAG_HIDE_CURSOR;
+        return;
+    }
+    // ESC[?25l Hide the cursor.
+    if (ic == '?' && len == 1 && p1 == 25 && ch == 'l') {
+        tb->flags |= FLAG_HIDE_CURSOR;
+        return;
+    }
+
+    // ESC[6n "Device status report"
+    // We transmit "ESC[n;mR" to the shell where n is row and m is column.
+    if (ic == '\0' && len == 1 && p1 == 6 && ch == 'n') {
+        dprintf(tb->pty_fd, "\x1B[%d;%dR", tb->row, tb->col);
         return;
     }
 
@@ -495,7 +811,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             case 21:  // Doubly underlined or not bold.
                 assert(false);
             case 22:  // Neither bold nor faint.
-                assert(false);
+                tb->flags &= ~FLAG_BOLD;
+                tb->flags &= ~FLAG_FAINT;
+                continue;
             case 23:  // Neither italic "blackletter". (?)
                 assert(false);
             case 24:  // Not underlined.
@@ -526,10 +844,63 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     tb->fg_color_b = four_bit_fg_colors[i * 3 + 2];
                     continue;
                 }
-            case 38:  // Wierd set foregound color ??
+            case 38:  // Set 8-bit foreground color or rgb color.
+                // We should have recived a sequence in one of the two forms
+                // 1)
+                //    ESC[5;<n>m where <n> is some number in the range 0-255.
+                // In this case <n> is one of 256 preset colors.
+                // 2)
+                //    ESC[2;<r>;<g>;<b>m
+                // In this case we have a specific rgb color specified.
+
+                // Before we do this we must handle an important case!
+                // It if possible we recive a string like ESC[1;38;200 which we
+                // should interpret as "Set bold font (1) and set fg color 200
+                // (38;200). I.e. it could very well be that '38' is not the
+                // first param and '200' is not the second, all we not is
+                // the param we we're currently lookin at (param i) is '38'
+                // and the next one should be '200'.
+
+                // There should be at least one parameter following the '38'.
+                assert(i + 1 < len);
+
+                // We expect `q` to be either '5' or '2'..
+                uint8_t q = data->params[i + 1];
+
+                // Set 8-bit foreground color.
+                if (q == 5) {
+                    // Thre should be at least one parameter following the '5'.
+                    assert(i + 2 < len);
+                    uint8_t q2 = data->params[i + 1];
+                    q2 = q2 == -1 ? 0 : q2;
+                    assert(0 <= q2 && q2 <= 255);
+                    tb->fg_color_r = eight_bit_fg_colors[q2 * 3];
+                    tb->fg_color_g = eight_bit_fg_colors[q2 * 3 + 1];
+                    tb->fg_color_b = eight_bit_fg_colors[q2 * 3 + 2];
+
+                    // Continue parsing any potential remaining graphics
+                    // parameters.
+                    i += 2;
+                    continue;
+                }
+
+                // Set rgb color
+                if (p2 == 2) {
+                    assert(false);
+                }
                 assert(false);
             case 39:  // Default foreground color.
-                assert(false);
+                // Here we as the implementor apparently get to pick a color we
+                // like to be the default foreground color
+                // (according to wikipedia). Let's just pick the 4-bit "bright
+                // white" to be our default.
+                {
+                    int i = 15;
+                    tb->fg_color_r = four_bit_fg_colors[i * 3];
+                    tb->fg_color_g = four_bit_fg_colors[i * 3 + 1];
+                    tb->fg_color_b = four_bit_fg_colors[i * 3 + 2];
+                    continue;
+                }
             case 40:  // Background color 1.
                 assert(false);
             case 41:  // Background color 1.
@@ -741,6 +1112,7 @@ action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
 action_c0                  = "action_c0"
+action_fe                  = "action_fe"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
 action_utf8_chomp_continue = "action_utf8_chomp_continue"
 action_utf8_chomp_end      = "action_utf8_chomp_end"
@@ -838,7 +1210,11 @@ table = [
   # P_STATE_ESC #
   ###############
   # Got some follow-up byte we we're not expecting
-  [ P_STATE_ESC, r(0, 90),   P_STATE_GROUND, action_fail                      ],
+  [ P_STATE_ESC, r(0, 37),  P_STATE_GROUND, action_fail                      ],
+  # Got a so called "Fe" escape sequence
+  [ P_STATE_ESC, r(38, 63),  P_STATE_GROUND, action_fe,                       ],
+  # Got some follow-up byte we we're not expecting
+  [ P_STATE_ESC, r(64, 90),  P_STATE_GROUND, action_fail                      ],
   # Got '['. "ESC[" is a "control sequence introducer" (CSI). Basically we have
   # the start of an ANSI escape sequence now.
   [ P_STATE_ESC, [ 91 ],     P_STATE_CSI   , action_csi_chomp_start           ],
@@ -3056,57 +3432,57 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_fe, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,

@@ -20,9 +20,10 @@
 #define FLAG_UNDERLINE 64              // 0b0000000001000000
 #define FLAG_STRIKEOUT 128             // 0b0000000010000000
 #define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
+#define FLAG_HIDE_CURSOR 512           // 0b0000001000000000
 
 // Represents a single unicode codepoint along with styling information such as
-// color, if it's bold, italic, etc. Fits snuggly in 88-bits.
+// color, if it's bold, italic, etc.
 struct termbuf_char {
     uint8_t  utf8_char[4];
     uint16_t flags;
@@ -54,6 +55,8 @@ enum parser_state {
 };
 #define NSTATES 9
 
+#define CSI_CHOMPING_MAX_PARAMS 4
+
 union parser_data {
     struct utf8_chomping {
         uint8_t len;
@@ -65,7 +68,7 @@ union parser_data {
         // if a param is -1 (i.e. largest uint16_t) then we interpret it as
         // missing, for instance ESC[;10H would give something like:
         // `params = { -1, 10, -1}
-        uint16_t params[3];
+        uint16_t params[CSI_CHOMPING_MAX_PARAMS];
     } ansi_csi_chomping;
     struct ansi_osc_chomping {
         uint16_t len;
@@ -85,12 +88,27 @@ struct termbuf {
     uint8_t bg_color_r;
     uint8_t bg_color_g;
     uint8_t bg_color_b;
+    // There are two so called "Fe" escape sequences that instructs the terminal
+    // to save resp. restore the cursor position, so we save this here.
+    // TODO: We should also save things like "shift state" and "formatting
+    //       attributes".
+    // FYI the two sequences are "ESC7" to save and "ESC8" to restore.
+    // If the value of these are -1 then not cursor has been saved.
+    int saved_row;
+    int saved_col;
+    // Sometimes we need to transmit data back to the shell after having recived
+    // certain escape sequences from the shell. This is the file descriptor we
+    // write to.
+    int pty_fd;
     enum  parser_state p_state;
     union parser_data  p_data;
     struct termbuf_char *buf;
 };
 
-void termbuf_initialize(int nrows, int ncols, struct termbuf *tb_ret);
+void termbuf_initialize(int nrows,
+                        int ncols,
+                        int pty_fd,
+                        struct termbuf *tb_ret);
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
 void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
 

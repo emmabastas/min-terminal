@@ -193,8 +193,11 @@ void font_render(int xoffset, int yoffset, int row, int col,
 
     for (int y = 0; y < bitmap_height; y++) {
         for (int x = 0; x < bitmap_width; x++) {
-            unsigned long grey = bitmap[y * bitmap_width + x];
-            unsigned long pixel = (grey << 16) | (grey << 8) | grey;
+            float alpha = (float) bitmap[y * bitmap_width + x] / 255.f ;
+            unsigned long pixel =
+                ((int) (c->fg_color_r * alpha) << 16)
+                | ((int) (c->fg_color_g * alpha) << 8)
+                | (int) (c->fg_color_b * alpha);
             memcpy(ximage->data + y * ximage->bytes_per_line + x * 4, &pixel, 4);
         }
     }
