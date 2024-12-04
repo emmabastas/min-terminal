@@ -19,6 +19,10 @@
 
 #define RINGBUF_CAPACITY 1024
 
+char *SHELL =
+    //"/bin/sh";
+    "/nix/store/717iy55ncqs0wmhdkwc5fg2vci5wbmq8-bash-5.2p32/bin/bash";
+
 Display *display;
 int window;
 int screen;
@@ -154,7 +158,7 @@ int exec_shell(char *cmd, char **args)
 	int errno = 0;
 
     //char *shell_name = getenv("SHELL");
-    char *shell_name = "/bin/sh";
+    char *shell_name = SHELL;
     if (shell_name == NULL) {
         assert(false);
     }
@@ -339,10 +343,10 @@ int main() {
             assert(false);
         }
 
-        char *args[3];
-        args[0] = "/bin/sh";
+        char *args[2];
+        args[0] = SHELL;
         args[1] = NULL;
-        ret = exec_shell("/bin/sh", args);
+        ret = exec_shell(SHELL, args);
         if (ret == -1) {
             assert(false);
         }
