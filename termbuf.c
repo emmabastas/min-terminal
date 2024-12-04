@@ -332,6 +332,18 @@ void termbuf_initialize(int nrows,
     }
 }
 
+void advance_cursor(struct termbuf *tb) {
+    tb->col ++;
+    if (tb->col > tb->ncols) {
+        tb->col = 1;
+        tb->row ++;
+        if (tb->row > tb->nrows) {
+            tb->row = tb->nrows;
+            termbuf_shift(tb);
+        }
+    }
+}
+
 void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
     assert(len > 0);
     assert(len <= 4);
@@ -348,16 +360,17 @@ void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
     tb->buf[index].bg_color_g = tb->bg_color_g;
     tb->buf[index].bg_color_b = tb->bg_color_b;
 
-    tb->col ++;
+    advance_cursor(tb);
+}
 
-    if (tb->col > tb->ncols) {
-        tb->col = 1;
-        tb->row ++;
-        if (tb->row > tb->nrows) {
-            //assert(false);
-            tb->row = 1;
-        }
-    }
+void termbuf_shift(struct termbuf *tb) {
+    // TODO: push into scrollback buffer
+    // TODO: Implement a ring buffer to get rid of memcpy's
+    size_t bytes_per_row = tb->ncols * sizeof(struct termbuf_char);
+    memmove(tb->buf,
+            tb->buf + tb->ncols,
+            (tb->nrows - 1) * bytes_per_row);
+    memset(tb->buf + (tb->nrows - 1) * tb->ncols, 0, bytes_per_row);
 }
 
 
@@ -475,9 +488,9 @@ void action_c0(struct termbuf *tb, char ch) {
         return;
     case '\n':  // Line feed.
         tb->row ++;
-        if (tb-> row > tb->nrows) {
-            //assert(false);
-            tb->row = 1;
+        if (tb->row > tb->nrows) {
+            tb->row = tb->nrows;
+            termbuf_shift(tb);
         }
         return;
     case '\v':  // Line tabulation.

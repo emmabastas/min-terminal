@@ -109,8 +109,21 @@ void termbuf_initialize(int nrows,
                         int ncols,
                         int pty_fd,
                         struct termbuf *tb_ret);
+
+// Parses bytes that we're sent by the shell, including things like C0, C1, and
+// Fe escape sequences, and does the appropriate thing.
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
+
+// Insert a single utf8 encoded character with the styling (bold, italic,
+// foreground color, etc.) that the terminal currently has, and advance to
+// cursor appropriately.
 void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
+
+// When the cursor is at the bottom at the terminal, and we encounter a line
+// feed '\n' we should push the topmost row into the scrollback buffer and shift
+// all other lines up one row to make room for a new empty row. This function
+// does that
+void termbuf_shift(struct termbuf *tb);
 
 CuSuite *termbuf_test_suite();
 
