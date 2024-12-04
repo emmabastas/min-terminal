@@ -21,7 +21,8 @@
 
 char *SHELL =
     //"/bin/sh";
-    "/nix/store/717iy55ncqs0wmhdkwc5fg2vci5wbmq8-bash-5.2p32/bin/bash";
+    //"/nix/store/717iy55ncqs0wmhdkwc5fg2vci5wbmq8-bash-5.2p32/bin/bash";
+    "/nix/store/p67rlwmrpf6j3q66dlm0ajyid5f48njk-user-environment/bin/nu";
 
 Display *display;
 int window;
@@ -272,7 +273,7 @@ int main() {
     int nrows, ncols;
 
     font_initialize(display, window, gc);
-    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 32, &nrows, &ncols);
+    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
 
     primary_pty_fd = posix_openpt(O_RDWR);
     if (primary_pty_fd == -1) {
