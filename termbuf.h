@@ -45,8 +45,14 @@ enum parser_state {
     // sequence.
     P_STATE_CSI    = 5,
     P_STATE_CSI_PARAMS = 6,
+    // The parser has now encountered "ESC]", meaning we started an OSC sequence
+    // We won't do anything with the OSC sequences so we just chomp them til
+    // their end (marked by "ESC\" (C1 "ST")) and then ignore the results.
+    P_STATE_OSC     = 7,
+    // We got the "ESC" in what we pressume to be a C1 string terminator "ESC\".
+    P_STATE_OSC_ESC = 8,
 };
-#define NSTATES 7
+#define NSTATES 9
 
 union parser_data {
     struct utf8_chomping {
@@ -61,6 +67,10 @@ union parser_data {
         // `params = { -1, 10, -1}
         uint16_t params[3];
     } ansi_csi_chomping;
+    struct ansi_osc_chomping {
+        uint16_t len;
+        uint8_t data[1024];
+    } ansi_osc_chomping;
 };
 
 struct termbuf {
