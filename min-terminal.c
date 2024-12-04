@@ -15,6 +15,7 @@
 #include "./font.h"
 #include "./ringbuf.h"
 #include "./termbuf.h"
+#include "./util.h"
 
 #define RINGBUF_CAPACITY 1024
 
@@ -86,8 +87,9 @@ void event_loop() {
             if (did_read == 0) {  // the pty is closed!?
                 assert(false);
             }
-            buf[did_read] = '\0';
-            printf("Did read \"%s\"\n", buf);
+            printf("Did read \"");
+            print_escape_non_printable(buf, did_read);
+            printf("\" from the shell.\n");
             termbuf_parse(&tb, buf, did_read);
             render();
         }
@@ -135,9 +137,9 @@ void xevent() {
             return;
         }
 
-        buf[len] = '\0';
-        printf("Got key from x11 %s\n", buf);
-        printf("Got int from x11 %d\n", buf[0]);
+        printf("Got key '");
+        print_escape_non_printable(buf, len);
+        printf("' from x11.\n");
         write(primary_pty_fd, buf, len);
 
         return;
