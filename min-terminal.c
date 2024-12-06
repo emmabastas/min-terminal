@@ -92,9 +92,6 @@ void event_loop() {
             if (did_read == 0) {  // the pty is closed!?
                 assert(false);
             }
-            printf("Did read \"");
-            print_escape_non_printable(buf, did_read);
-            printf("\" from the shell.\n");
             termbuf_parse(&tb, buf, did_read);
             render();
         }
@@ -142,9 +139,9 @@ void xevent() {
             return;
         }
 
-        printf("Got key '");
+        printf("\n\x1B[36m> Got key '");
         print_escape_non_printable(buf, len);
-        printf("' from x11.\n");
+        printf("' from x11.\x1B[0m\n");
         write(primary_pty_fd, buf, len);
 
         return;
