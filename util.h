@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+char *util_xevent_to_string(int type);
 void print_escape_non_printable(unsigned char *data, size_t len);
 
 #endif /* INCLUDED_FONT_H */

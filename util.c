@@ -1,5 +1,50 @@
 #include <stdio.h>
 #include <stddef.h>
+#include <assert.h>
+
+char *util_xevent_to_string(int type) {
+    assert(2 <= type && type <=37);
+
+    char *map[35] = {
+        "KeyPress",
+        "KeyRelease",
+        "ButtonPress",
+        "ButtonRelease",
+        "MotionNotify",
+        "EnterNotify",
+        "LeaveNotify",
+        "FocusIn",
+        "FocusOut",
+        "KeymapNotify",
+        "Expose",
+        "GraphicsExpose",
+        "NoExpose",
+        "VisibilityNotify",
+        "CreateNotify",
+        "DestroyNotify",
+        "UnmapNotify",
+        "MapNotify",
+        "MapRequest",
+        "ReparentNotify",
+        "ConfigureNotify",
+        "ConfigureRequest",
+        "GravityNotify",
+        "ResizeRequest",
+        "CirculateNotify",
+        "CirculateRequest",
+        "PropertyNotify",
+        "SelectionClear",
+        "SelectionRequest",
+        "SelectionNotify",
+        "ColormapNotify",
+        "ClientMessage",
+        "MappingNotify",
+        "GenericEvent",
+        "LASTEvent",
+    };
+
+    return map[type - 2];
+}
 
 void print_escape_non_printable(unsigned char *data, size_t len) {
     for(size_t i = 0; i < len; i++) {

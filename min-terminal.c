@@ -102,6 +102,16 @@ void event_loop() {
 void xevent() {
     XNextEvent(display, &event);
 
+    if (event.type == FocusIn) {
+        printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
+        return;
+    }
+
+    if (event.type == FocusOut) {
+        printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
+        return;
+    }
+
     if (event.type == KeyPress) {
         XKeyPressedEvent key_event = event.xkey;
 
@@ -143,9 +153,50 @@ void xevent() {
         print_escape_non_printable(buf, len);
         printf("' from x11.\x1B[0m\n");
         write(primary_pty_fd, buf, len);
-
         return;
     }
+
+    // Got a message from a client who sent it with `XSendEvent`
+    // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
+    if (event.type == ClientMessage) {
+        printf("\n\x1B[36m> ClientMessage event\x1B[0m\n");
+        return;
+    }
+
+    // Window state changed
+    // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
+    if (event.type == ConfigureNotify) {
+        printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
+        return;
+    }
+
+    // https://tronche.com/gui/x/xlib/events/window-state-change/map.html
+    // TODO: What does this indicate?
+    if (event.type == MapNotify) {
+        printf("\n\x1B[36m> MapNotify event\x1B[0m\n");
+        return;
+    }
+
+    // https://tronche.com/gui/x/xlib/events/window-state-change/visibility.html
+    // TODO: Keep track of when window is visible and not to avoid
+    // unecessary graphics operations.
+    if (event.type == VisibilityNotify) {
+        printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
+        return;
+    }
+
+    // https://tronche.com/gui/x/xlib/events/exposure/expose.html
+    // TODO: What does this indicate?
+    if (event.type == Expose) {
+        printf("\n\x1B[36m> Expose event\x1B[0m\n");
+        return;
+    }
+
+    // We missed some event, error
+    printf("Unhandeled XEvent %d %s\n",
+           event.type,
+           util_xevent_to_string(event.type));
+    assert(false);
 }
 
 // From simpleterminal.
