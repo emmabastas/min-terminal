@@ -192,6 +192,14 @@ void xevent() {
         return;
     }
 
+    // We have a new parent window.
+    // https://tronche.com/gui/x/xlib/events/window-state-change/reparent.html
+    // TODO: Should I do the resizing here?
+    if (event.type == ReparentNotify) {
+        printf("\n\x1B[36m> ReparentNotify\x1B[0m\n");
+        return;
+    }
+
     // We missed some event, error
     printf("Unhandeled XEvent %d %s\n",
            event.type,
@@ -249,7 +257,7 @@ int exec_shell(char *cmd, char **args)
     return execvp(prog, args);
 }
 
-int main() {
+int main(int argc, char **argv) {
     display = XOpenDisplay(NULL);
     if (!display) { assert(false); }
 
@@ -259,23 +267,104 @@ int main() {
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 400;
 
+    // If I want to control window placement and not let the WM decide I should
+    // add CWOverrideRedirect flag to the set of flags when calling
+    // XCreateWindow.
+    // https://tronche.com/gui/x/xlib/window/attributes/override-redirect.html
+
     XSetWindowAttributes win_attributes;
     win_attributes.override_redirect = True;
     win_attributes.background_pixel = 0x505050;
     win_attributes.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask | StructureNotifyMask;
     window = XCreateWindow(
-        display,           // display
-        root,              // root
-        0,                 // x
-        0,                 // y
-        SCREEN_WIDTH,      // width
-        SCREEN_HEIGHT,     // height
-        0,                 // border_width
-        CopyFromParent,    // depth
-        CopyFromParent,    // class
-        CopyFromParent,    // visual
-        CWOverrideRedirect | CWBackPixel | CWEventMask, // valuemask
-        &win_attributes);  // attributes
+        display,             // display
+        root,                // root
+        0,                   // x
+        0,                   // y
+        SCREEN_WIDTH,        // width
+        SCREEN_HEIGHT,       // height
+        0,                   // border_width
+        CopyFromParent,      // depth
+        CopyFromParent,      // class
+        visual_info->visual, // visual
+        CWBackPixel | CWEventMask | CWColormap, // valuemask
+        &win_attributes);    // attributes
+
+    // Set window attributes
+
+    // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-normal-hints.html#XSizeHints
+    XSizeHints *size_hints = XAllocSizeHints();
+    const int BORDERPX = 2;
+    size_hints->flags = 0;
+    size_hints->flags = PSize | PResizeInc | PBaseSize | PMinSize | PWinGravity;
+    size_hints->height = SCREEN_HEIGHT;
+    size_hints->width = SCREEN_WIDTH;
+    size_hints->height_inc = 10;
+    size_hints->width_inc = 10;
+    size_hints->base_height = 2 * BORDERPX;
+    size_hints->base_width = 2 * BORDERPX;
+    size_hints->min_height = SCREEN_HEIGHT + 2 * BORDERPX;
+    size_hints->min_width = SCREEN_WIDTH + 2 * BORDERPX;
+    size_hints->win_gravity = SouthEastGravity;
+
+    // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-hints.html#XWMHints
+    XWMHints *wm_hints = XAllocWMHints();
+    wm_hints->flags = InputHint | StateHint;
+    wm_hints->input = True;
+    wm_hints->initial_state = NormalState;
+
+    // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-class.html#XClassHint
+    // TODO be moreposix compliant: https://tronche.com/gui/x/icccm/sec-4.html#WM_CLASS
+    XClassHint *class_hints = XAllocClassHint();
+    char *progpath = calloc(256, 1);
+    strncpy(progpath, argv[0], 255);
+    class_hints->res_name = basename(progpath);
+    class_hints->res_class = "min-terminal";
+
+    XSetWMProperties(display,  // display
+                     window,  // window
+                     NULL,  // window_name
+                     NULL,  // icon_name
+                     NULL,  // argv
+                     0,  // argc
+                     size_hints,    // normal_hints
+                     wm_hints,      // wm_hints
+                     class_hints);  // class_hints
+
+    XFree(size_hints);
+    XFree(wm_hints);
+    XFree(class_hints);
+
+    // Set some attributes on the window
+    Atom a_net_wm_window_type = XInternAtom(display,
+                                            "_NET_WM_WINDOW_TYPE",
+                                            False);
+    Atom a_net_wm_window_type_normal = XInternAtom(display,
+                                                   "_NET_WM_WINDOW_TYPE_NORMAL",
+                                                   False);
+
+    XChangeProperty(display,
+                    window,
+                    a_net_wm_window_type,
+                    XA_ATOM,
+                    32,
+                    PropModeReplace,
+                    (unsigned char *)&a_net_wm_window_type_normal, 1);
+
+    Atom a_net_wm_state = XInternAtom(display,
+                                    "_NET_WM_STATE",
+                                    False);
+    Atom a_net_wm_state_above = XInternAtom(display,
+                                          "_NET_WM_STATE_ABOVE",
+                                          False);
+
+    XChangeProperty(display,
+                    window,
+                    a_net_wm_state,
+                    XA_ATOM,
+                    32,
+                    PropModeReplace,
+                    (unsigned char *)&a_net_wm_state_above, 1);
 
     // Get the window onto the display
     XMapRaised(display, window);
