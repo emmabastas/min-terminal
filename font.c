@@ -1,8 +1,12 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
 
 #include <X11/Xlib.h>
 #include <harfbuzz/hb.h>
+
+#include <glad/gl.h>
+#include <glad/glx.h>
 
 #include "./termbuf.h"
 
@@ -31,14 +35,96 @@ static int ascent;
 static int descent;
 static int line_gap;
 
-Display *x_display;
-int      x_window;
-GC       x_gc;
+Display   *x_display;
+int        x_window;
 
-void font_initialize(Display *display, int window, GC gc) {
+GLXContext gl_context;
+GLuint     gl_glyphtexture;
+GLuint     gl_vao;
+GLuint     gl_vbo;
+GLuint     shaderprogram;
+
+void font_initialize(Display *display, int window, GLXContext context) {
     x_display = display;
     x_window = window;
-    x_gc = gc;
+    gl_context = context;
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glGenTextures(1, &gl_glyphtexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, gl_glyphtexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenVertexArrays(1, &gl_vao);
+    glBindVertexArray(gl_vao);
+
+    const GLfloat vertices[16] = {
+        -1.0,   1.0, 0.0, 0.0,
+        -1.0,  -1.0, 0.0, 1.0,
+         1.0,   1.0, 1.0, 0.0,
+         1.0,  -1.0, 1.0, 1.0,
+    };
+
+    glGenBuffers(1, &gl_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 16 * sizeof(GLfloat),
+                 vertices,
+                 GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+
+    char *vertexsource = "#version 460 \n\
+        layout (location = 0) in vec2 in_position; \n\
+        layout (location = 1) in vec2 in_tex_coord; \n\
+        \n\
+        out vec3 fg_color; \n\
+        out vec2 tex_coord; \n\
+        \n\
+        void main(void) { \n\
+            gl_Position = vec4(in_position, 0.0, 1.0); \n\
+            \n\
+            fg_color = vec3(1.0, 0.0, 0.0); \n\
+            tex_coord = in_tex_coord; \n\
+        }\n";
+
+    GLint vertexshader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexshader, 1, (const GLchar**)&vertexsource, 0);
+    glCompileShader(vertexshader);
+
+    char *fragmentsource = "#version 460 \n\
+        precision highp float; \n\
+        precision highp sampler2D; \n\
+        \n\
+        in vec3 fg_color; \n\
+        in vec2 tex_coord; \n\
+        uniform sampler2D tex; \n\
+        \n\
+        layout(location = 0) out vec4 frag_color; \n\
+        \n\
+        void main(void) { \n\
+            float intensity = texture(tex, tex_coord).r; \n\
+            frag_color = vec4(vec3(intensity), 1.0); \n\
+        }";
+
+    GLint fragmentshader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentshader, 1, (const GLchar**)&fragmentsource, 0);
+    glCompileShader(fragmentshader);
+
+    shaderprogram = glCreateProgram();
+    glAttachShader(shaderprogram, vertexshader);
+    glAttachShader(shaderprogram, fragmentshader);
+    glLinkProgram(shaderprogram);
+    glUseProgram(shaderprogram);
+
+    glBindAttribLocation(shaderprogram, 0, "in_position");
+    glUniform1i(glGetUniformLocation(shaderprogram, "tex"), 0);
 
     blob = hb_blob_create_from_file_or_fail(ttf_path);
     if (blob == NULL) {
@@ -74,6 +160,7 @@ void font_calculate_sizes(int screen_height,
                           int char_height,
                           int *nrows_ret,
                           int *ncols_ret) {
+
     font_scale = stbtt_ScaleForPixelHeight(&font_info, char_height);
 
     // Calculate the font width-height ratio.
@@ -106,14 +193,6 @@ void font_calculate_sizes(int screen_height,
 
 void font_render(int xoffset, int yoffset, int row, int col,
                  struct termbuf_char *c) {
-    XFillRectangle(
-        x_display,
-        x_window,
-        x_gc,
-        (col - 1) * cell_width,
-        (row - 1) * cell_height,
-        cell_width,
-        cell_height);
 
     if ((c->flags & FLAG_LENGTH_MASK) == FLAG_LENGTH_0) {
         return;
@@ -145,6 +224,7 @@ void font_render(int xoffset, int yoffset, int row, int col,
     // Get glyph information and positions out of the buffer.
     hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buf, NULL);
     hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
+    hb_buffer_clear_contents(buf);
 
     int glyph_index = info->codepoint;
     //int glyph_index = stbtt_FindGlyphIndex(&font_info, 45);//info->codepoint);
@@ -172,48 +252,22 @@ void font_render(int xoffset, int yoffset, int row, int col,
         assert(false);
     }
 
-    hb_buffer_clear_contents(buf);
-
-    XImage *ximage = XCreateImage(x_display,
-                                  CopyFromParent,
-                                  24,
-                                  ZPixmap,
-                                  0,
-                                  NULL,
-                                  bitmap_width,
-                                  bitmap_height,
-                                  32,
-                                  0);
-
-    if (ximage == NULL) {
-        assert(false);
-    }
-
-    ximage->data = malloc(ximage->bytes_per_line * bitmap_height);
-
-    for (int y = 0; y < bitmap_height; y++) {
-        for (int x = 0; x < bitmap_width; x++) {
-            float alpha = (float) bitmap[y * bitmap_width + x] / 255.f ;
-            unsigned long pixel =
-                ((int) (c->fg_color_r * alpha) << 16)
-                | ((int) (c->fg_color_g * alpha) << 8)
-                | (int) (c->fg_color_b * alpha);
-            memcpy(ximage->data + y * ximage->bytes_per_line + x * 4, &pixel, 4);
-        }
-    }
+    glTexImage2D(GL_TEXTURE_2D,    // target
+                 0,                // level
+                 GL_RED,           // internal format
+                 bitmap_width,     // width
+                 bitmap_height,    // height
+                 0,                // border
+                 GL_RED,           // format
+                 GL_UNSIGNED_BYTE, // type
+                 bitmap);          // data
 
     stbtt_FreeBitmap(bitmap, NULL);
 
-    XPutImage(x_display,
-              x_window,
-              x_gc,
-              ximage,
-              0,
-              0,
-              (col - 1) * cell_width + bitmap_xoffset,
-              row * cell_height + bitmap_yoffset + descent * font_scale,
-              bitmap_width,
-              bitmap_height);
+    glViewport((col - 1) * cell_width + bitmap_xoffset,
+               400 - ((row - 1) * cell_height + bitmap_height + bitmap_yoffset + descent * font_scale),
+               bitmap_width,
+               bitmap_height);
 
-    XDestroyImage(ximage);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }

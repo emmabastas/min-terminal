@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <X11/Xlib.h>
-#include <X11/Xft/Xft.h>
 
 #include "./CuTest.h"
 

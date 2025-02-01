@@ -5,7 +5,7 @@
 
 #include "./termbuf.h"
 
-void font_initialize();
+void font_initialize(Display *display, int window, GLXContext context);
 void font_calculate_sizes(int screen_height,
                           int screen_width,
                           int char_height,

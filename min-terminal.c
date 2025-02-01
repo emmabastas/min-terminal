@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
@@ -8,9 +9,14 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <assert.h>
+#include <libgen.h>
 
 #include <X11/Xlib.h>
-#include <X11/Xft/Xft.h>
+#include <X11/Xatom.h>
+
+// https://gen.glad.sh/#generator=c&api=gl%3D4.6%2Cglx%3D1.4&profile=gl%3Dcompatibility%2Cgles1%3Dcommon&extensions=GL_ARB_debug_output%2CGL_KHR_debug%2CGLX_ARB_create_context&options=ALIAS%2CALIAS%2CLOADER
+#include <glad/gl.h>
+#include <glad/glx.h>
 
 #include "./font.h"
 #include "./ringbuf.h"
@@ -27,11 +33,9 @@ char *SHELL =
 Display *display;
 int window;
 int screen;
+GLXContext glx_context;
+// GC gc;
 
-GC gc;
-
-XftDraw *draw;
-XftFont *font = NULL;
 struct termbuf tb;
 
 XEvent event;
@@ -49,13 +53,17 @@ void run_all_tests();
 void xevent();
 int exec_shell(char *command, char **args);
 void render();
+void gl_debug_msg_callback(GLenum source,
+                           GLenum type,
+                           GLuint id,
+                           GLenum severity,
+                           GLsizei length,
+                           const GLchar *message,
+                           const void *userParam);
 
 void render() {
     const int cell_width = 18;
     const int cell_height = 22;
-
-    XRenderColor fg;
-    XftColor color_foreground;
 
     for (int row = 1; row <= tb.nrows; row ++) {
         for (int col = 1; col <= tb.ncols; col ++) {
@@ -65,6 +73,8 @@ void render() {
             font_render(0, 0, row, col, c);
         }
     }
+
+    glXSwapBuffers (display, window);
 }
 
 void event_loop() {
@@ -264,6 +274,46 @@ int main(int argc, char **argv) {
     screen = DefaultScreen(display);
     int root = DefaultRootWindow(display);
 
+    int glx_version = gladLoaderLoadGLX(display, screen);
+    if (!glx_version) {
+        printf("Unable to load GLX.\n");
+        return 1;
+    }
+    printf("Loaded GLX %d.%d\n", GLAD_VERSION_MAJOR(glx_version), GLAD_VERSION_MINOR(glx_version));
+
+    int visual_attribs[13] = {
+        GLX_RENDER_TYPE,    GLX_RGBA_BIT,
+        GLX_RED_SIZE,       8,
+        GLX_GREEN_SIZE,     8,
+        GLX_BLUE_SIZE,      8,
+        GLX_DEPTH_SIZE,     24,
+        GLX_DOUBLEBUFFER,   True,
+        None,
+    };
+
+    int n_attribs;
+    GLXFBConfig *fbconfig = glXChooseFBConfig(display,
+                                              DefaultScreen(display),
+                                              visual_attribs,
+                                              &n_attribs);
+
+    if (fbconfig == NULL) {  // config != NULL implies that n_attribs > 0.
+        assert(false);
+    }
+
+    GLXFBConfig best_bfconfig = fbconfig[0];
+    XFree(fbconfig);
+
+    XVisualInfo *visual_info = glXGetVisualFromFBConfig(display, best_bfconfig);
+    if (visual_info == NULL) {
+        assert(false);
+    }
+
+    Colormap colormap = XCreateColormap(display,
+                                        root,
+                                        visual_info->visual,
+                                        AllocNone);
+
     const int SCREEN_WIDTH = 800;
     const int SCREEN_HEIGHT = 400;
 
@@ -275,7 +325,12 @@ int main(int argc, char **argv) {
     XSetWindowAttributes win_attributes;
     win_attributes.override_redirect = True;
     win_attributes.background_pixel = 0x505050;
-    win_attributes.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask | StructureNotifyMask;
+    win_attributes.colormap = colormap;
+    win_attributes.event_mask =
+        ExposureMask
+        | KeyPressMask
+        | VisibilityChangeMask
+        | StructureNotifyMask;
     window = XCreateWindow(
         display,             // display
         root,                // root
@@ -369,25 +424,61 @@ int main(int argc, char **argv) {
     // Get the window onto the display
     XMapRaised(display, window);
 
+    // See: https://stackoverflow.com/a/22256131 for why XSync before
+    // XSetInputFocus.
+    XSync(display, False);
+
     XSetInputFocus(display, window, RevertToParent, CurrentTime);
 
-    // Make a draw (whatever that is?)
-    draw = XftDrawCreate(
-        display,
-        window,
-        DefaultVisual(display, screen),
-        DefaultColormap(display, screen));
+    int context_attribs[3] = {
+        GLX_CONTEXT_FLAGS_ARB,
+        //GLX_CONTEXT_DEBUG_BIT_ARB | GLX_CONTEXT_ROBUST_ACCESS_BIT_ARB,
+        GLX_CONTEXT_DEBUG_BIT_ARB,
+        None,
+    };
 
-    // Specify the font
-    font = XftFontOpenName(display, screen, "FiraCode Nerd Font");
-    if (font == NULL) {
+    // glx_context = glXCreateContext(display, visual_info, NULL, GL_TRUE);
+    glx_context = glXCreateContextAttribsARB(display,
+                                             best_bfconfig,
+                                             NULL,
+                                             GL_TRUE,
+                                             context_attribs);
+    if (glx_context == NULL) {
         assert(false);
     }
 
-    gc = XCreateGC(display,
-                      window,
-                      0,
-                      NULL);
+    Bool success = glXMakeCurrent(display, window, glx_context);
+    if (success == False) {
+        assert(false);
+    }
+
+    int gl_version = gladLoaderLoadGL();
+    if (!gl_version) {
+        printf("Unable to load GL.\n");
+        return 1;
+    }
+    printf("Loaded GL %d.%d\n", GLAD_VERSION_MAJOR(gl_version), GLAD_VERSION_MINOR(gl_version));
+
+    GLint flags;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT == 0) {
+        assert(false);
+    }
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(gl_debug_msg_callback, NULL);
+    glDebugMessageControl(GL_DONT_CARE, // source
+                          GL_DONT_CARE, // type
+                          GL_DONT_CARE, // severity
+                          0,            // count
+                          NULL,         // ids
+                          GL_TRUE);     // enabled
+
+
+    int nrows, ncols;
+    font_initialize(display, window, glx_context);
+    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
 
     // Make an input context, used later to decode keypresses
 
@@ -406,11 +497,6 @@ int main(int argc, char **argv) {
       XNFocusWindow,
       window,
       NULL);
-
-    int nrows, ncols;
-
-    font_initialize(display, window, gc);
-    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
 
     primary_pty_fd = posix_openpt(O_RDWR);
     if (primary_pty_fd == -1) {
@@ -498,6 +584,18 @@ int main(int argc, char **argv) {
     event_loop();
 
     return 0;
+}
+
+// https://gist.github.com/liam-middlebrook/c52b069e4be2d87a6d2f
+void gl_debug_msg_callback(GLenum source,
+                           GLenum type,
+                           GLuint id,
+                           GLenum severity,
+                           GLsizei length,
+                           const GLchar *message,
+                           const void *userParam) {
+    printf("\x1b[31mGL error message:\x1B[m \"%s\"\n", message);
+    assert(false);
 }
 
 void run_all_tests() {

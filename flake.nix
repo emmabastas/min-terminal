@@ -29,7 +29,7 @@
               pkg-config
               cpplint
               xorg.libX11
-              xorg.libXft
+              libGL.dev
               harfbuzz
               (pkgs.python3.withPackages (python-pkgs: [
                 python-pkgs.cogapp

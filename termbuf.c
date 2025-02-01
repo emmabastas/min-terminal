@@ -1,10 +1,12 @@
 #include "termbuf.h"
 
-#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <assert.h>
+
 #include <X11/Xlib.h>
-#include <X11/Xft/Xft.h>
 
 #include "CuTest.h"
 
@@ -12,6 +14,7 @@
 
 // Shoutout https://poor.dev/blog/terminal-anatomy/
 // and      https://vt100.net/emu/dec_ansi_parser
+// and      https://unix.stackexchange.com/questions/157878/non-printing-escape-sequence-when
 
 
 
