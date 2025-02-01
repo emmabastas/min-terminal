@@ -18,21 +18,24 @@
 
 
 
-// According to the standard there are 8 foreground and 8 background colors that
-// are predetermined (though configurable by the user). You select these colors
-// via SRG parameters 30-37 for foreground colors, and 40-47 for background
-// colors. For instance ESC[31;42m sets the foreground to clolor 1 and
-// background to color 2.
+// 3/4 -bit colors.
+// According to the standard there are 8 predetermined (though configurable by
+// the user) than can be used to specify foreground an background colors. You
+// select these colors via SRG parameters 30-37 for foreground colors, and 40-47
+// for background colors. For instance ESC[31;42m sets the foreground to clolor
+// 1 and background to color 2.
+// https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
 const uint8_t four_bit_fg_colors[16 * 3] = {
-    0  , 0  , 0  ,  // 31 Black.
-    153, 0  , 0  ,
-    0  , 166, 0  ,
-    153, 153, 153,
-    0  , 0  , 178,
-    178, 0  , 178,
-    0  , 166, 178,
-    191, 191, 191,
-    // bright variants
+    //                 FG/BG Name.
+    0  , 0  , 0  ,  // 30/40 Black.
+    153, 0  , 0  ,  // 31/41 Red.
+    0  , 166, 0  ,  // 32/42 Green.
+    153, 153, 153,  // 33/43 Yello.
+    0  , 0  , 178,  // 34/44 Blue
+    178, 0  , 178,  // 35/45 Magenta.
+    0  , 166, 178,  // 36/46 Cyan.
+    191, 191, 191,  // 37/47 White
+    // bright variants. Selected with codes 90-97 and 100-107 for fg resp. bg.
     102, 102, 102,
     230, 0  , 0  ,
     0  , 217, 0  ,
@@ -43,6 +46,8 @@ const uint8_t four_bit_fg_colors[16 * 3] = {
     230, 230, 230,
 };
 
+// 8-bit colors.
+// https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 const uint8_t eight_bit_fg_colors[256 * 3] = {
     0, 0, 0,
     128, 0, 0,
