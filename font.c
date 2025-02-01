@@ -44,6 +44,16 @@ GLuint     gl_vao;
 GLuint     gl_vbo;
 GLuint     shaderprogram;
 
+struct s_uniform_locations {
+    GLint cell_width;
+    GLint cell_height;
+    GLint bitmap_width;
+    GLint bitmap_height;
+    GLint bitmap_xoffset;
+    GLint bitmap_yoffset;
+    GLint descent;
+} uniform_locations;
+
 void font_initialize(Display *display, int window, GLXContext context) {
     x_display = display;
     x_window = window;
@@ -104,12 +114,25 @@ void font_initialize(Display *display, int window, GLXContext context) {
         \n\
         in vec3 fg_color; \n\
         in vec2 tex_coord; \n\
+        \n\
         uniform sampler2D tex; \n\
+        uniform int cell_width; \n\
+        uniform int cell_height; \n\
+        uniform int bitmap_width; \n\
+        uniform int bitmap_height; \n\
+        uniform int bitmap_xoffset; \n\
+        uniform int bitmap_yoffset; \n\
+        uniform int descent; \n\
         \n\
         layout(location = 0) out vec4 frag_color; \n\
         \n\
         void main(void) { \n\
-            float intensity = texture(tex, tex_coord).r; \n\
+            //float intensity = texture(tex, tex_coord).r; \n\
+            ivec2 pixel_xy = ivec2( \n\
+                floor(tex_coord * ivec2(cell_width, cell_height)) \n\
+                - ivec2(bitmap_xoffset, cell_height + bitmap_yoffset + descent) \n\
+            ); \n\
+            float intensity = texelFetch(tex, pixel_xy, 0).r; \n\
             frag_color = vec4(vec3(intensity), 1.0); \n\
         }";
 
@@ -125,6 +148,17 @@ void font_initialize(Display *display, int window, GLXContext context) {
 
     glBindAttribLocation(shaderprogram, 0, "in_position");
     glUniform1i(glGetUniformLocation(shaderprogram, "tex"), 0);
+
+
+    uniform_locations = (struct s_uniform_locations) {
+        .cell_width = glGetUniformLocation(shaderprogram, "cell_width"),
+        .cell_height = glGetUniformLocation(shaderprogram, "cell_height"),
+        .bitmap_width = glGetUniformLocation(shaderprogram, "bitmap_width"),
+        .bitmap_height = glGetUniformLocation(shaderprogram, "bitmap_height"),
+        .bitmap_xoffset = glGetUniformLocation(shaderprogram, "bitmap_xoffset"),
+        .bitmap_yoffset = glGetUniformLocation(shaderprogram, "bitmap_yoffset"),
+        .descent = glGetUniformLocation(shaderprogram, "descent"),
+    };
 
     blob = hb_blob_create_from_file_or_fail(ttf_path);
     if (blob == NULL) {
@@ -186,6 +220,9 @@ void font_calculate_sizes(int screen_height,
     // collumns will fit in the window.
     *nrows_ret = (int) floor((float) screen_height / (float) cell_height);
     *ncols_ret = (int) floor((float) screen_width / (float) cell_width);
+
+    glUniform1i(uniform_locations.cell_width, cell_width);
+    glUniform1i(uniform_locations.cell_height, cell_height);
 
     printf("fs %f\n", font_scale);
     printf("descent %d\n", descent);
@@ -264,10 +301,16 @@ void font_render(int xoffset, int yoffset, int row, int col,
 
     stbtt_FreeBitmap(bitmap, NULL);
 
-    glViewport((col - 1) * cell_width + bitmap_xoffset,
-               400 - ((row - 1) * cell_height + bitmap_height + bitmap_yoffset + descent * font_scale),
-               bitmap_width,
-               bitmap_height);
+    glViewport((col - 1) * cell_width,
+               400 - ((row - 1) * cell_height),
+               cell_width,
+               cell_height);
+
+    glUniform1i(uniform_locations.bitmap_width, bitmap_width);
+    glUniform1i(uniform_locations.bitmap_height, bitmap_height);
+    glUniform1i(uniform_locations.bitmap_xoffset, bitmap_xoffset);
+    glUniform1i(uniform_locations.bitmap_yoffset, bitmap_yoffset);
+    glUniform1i(uniform_locations.descent, descent * font_scale);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
