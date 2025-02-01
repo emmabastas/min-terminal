@@ -52,6 +52,7 @@ struct s_uniform_locations {
     GLint bitmap_xoffset;
     GLint bitmap_yoffset;
     GLint descent;
+    GLint fg_color;
 } uniform_locations;
 
 void font_initialize(Display *display, int window, GLXContext context) {
@@ -94,13 +95,11 @@ void font_initialize(Display *display, int window, GLXContext context) {
         layout (location = 0) in vec2 in_position; \n\
         layout (location = 1) in vec2 in_tex_coord; \n\
         \n\
-        out vec3 fg_color; \n\
         out vec2 tex_coord; \n\
         \n\
         void main(void) { \n\
             gl_Position = vec4(in_position, 0.0, 1.0); \n\
             \n\
-            fg_color = vec3(1.0, 0.0, 0.0); \n\
             tex_coord = in_tex_coord; \n\
         }\n";
 
@@ -112,7 +111,6 @@ void font_initialize(Display *display, int window, GLXContext context) {
         precision highp float; \n\
         precision highp sampler2D; \n\
         \n\
-        in vec3 fg_color; \n\
         in vec2 tex_coord; \n\
         \n\
         uniform sampler2D tex; \n\
@@ -123,6 +121,7 @@ void font_initialize(Display *display, int window, GLXContext context) {
         uniform int bitmap_xoffset; \n\
         uniform int bitmap_yoffset; \n\
         uniform int descent; \n\
+        uniform vec3 fg_color; \n\
         \n\
         layout(location = 0) out vec4 frag_color; \n\
         \n\
@@ -133,7 +132,7 @@ void font_initialize(Display *display, int window, GLXContext context) {
                 - ivec2(bitmap_xoffset, cell_height + bitmap_yoffset + descent) \n\
             ); \n\
             float intensity = texelFetch(tex, pixel_xy, 0).r; \n\
-            frag_color = vec4(vec3(intensity), 1.0); \n\
+            frag_color = vec4(intensity * fg_color, 1.0); \n\
         }";
 
     GLint fragmentshader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -158,6 +157,7 @@ void font_initialize(Display *display, int window, GLXContext context) {
         .bitmap_xoffset = glGetUniformLocation(shaderprogram, "bitmap_xoffset"),
         .bitmap_yoffset = glGetUniformLocation(shaderprogram, "bitmap_yoffset"),
         .descent = glGetUniformLocation(shaderprogram, "descent"),
+        .fg_color = glGetUniformLocation(shaderprogram, "fg_color"),
     };
 
     blob = hb_blob_create_from_file_or_fail(ttf_path);
@@ -311,6 +311,10 @@ void font_render(int xoffset, int yoffset, int row, int col,
     glUniform1i(uniform_locations.bitmap_xoffset, bitmap_xoffset);
     glUniform1i(uniform_locations.bitmap_yoffset, bitmap_yoffset);
     glUniform1i(uniform_locations.descent, descent * font_scale);
+    glUniform3f(uniform_locations.fg_color,
+                c->fg_color_r / 255.f,
+                c->fg_color_g / 255.f,
+                c->fg_color_b / 255.f);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
