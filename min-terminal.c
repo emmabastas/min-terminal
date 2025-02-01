@@ -166,6 +166,11 @@ void xevent() {
         return;
     }
 
+    if (event.type == KeyRelease) {
+        printf("\n\x1B[36m> KeyRelease event\x1B[0m\n");
+        return;
+    }
+
     // Got a message from a client who sent it with `XSendEvent`
     // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
     if (event.type == ClientMessage) {
