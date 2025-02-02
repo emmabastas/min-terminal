@@ -315,7 +315,7 @@ void font_render(int xoffset, int yoffset, int row, int col,
     stbtt_FreeBitmap(bitmap, NULL);
 
     glViewport((col - 1) * cell_width,
-               400 - ((row - 1) * cell_height),
+               400 - (row * cell_height),
                cell_width,
                cell_height);
 
