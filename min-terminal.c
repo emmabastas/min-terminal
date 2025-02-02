@@ -74,7 +74,9 @@ void render() {
         }
     }
 
-    glXSwapBuffers (display, window);
+    // Use this instead if doing double buffering.
+    // glXSwapBuffers(display, window);
+    glFlush();
 }
 
 void event_loop() {
@@ -292,7 +294,7 @@ int main(int argc, char **argv) {
         GLX_GREEN_SIZE,     8,
         GLX_BLUE_SIZE,      8,
         GLX_DEPTH_SIZE,     24,
-        GLX_DOUBLEBUFFER,   True,
+        GLX_DOUBLEBUFFER,   False,
         None,
     };
 
