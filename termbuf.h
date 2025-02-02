@@ -7,6 +7,16 @@
 
 #include "./CuTest.h"
 
+// These flags are used in two places
+// 1) Each terminal cell (termbuf_char) has a flags field that represents it's
+//    apperance.
+// 2) The terminal itself (termbuf) uses these flags to represent part of it's
+//    state.
+// The terminal cells only use the first 8-bits (i.e. the flags up to and
+// including `FLAG_STRIKEOUT` and hence a uint8_t is enough. The terminal state
+// uses all flags except for the first FLAG_LENGT_n flags and so in theory it
+// need no more than an uint8_t as well, but right now we have reserved an
+// uint16_t for it.
 #define FLAG_LENGTH_0 0                // 0b0000000000000000
 #define FLAG_LENGTH_1 1                // 0b0000000000000001
 #define FLAG_LENGTH_2 2                // 0b0000000000000010
@@ -18,20 +28,21 @@
 #define FLAG_ITALIC    32              // 0b0000000000100000
 #define FLAG_UNDERLINE 64              // 0b0000000001000000
 #define FLAG_STRIKEOUT 128             // 0b0000000010000000
+// These are only used by the `struct termbuf`
 #define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
 #define FLAG_HIDE_CURSOR 512           // 0b0000001000000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.
 struct termbuf_char {
-    uint8_t  utf8_char[4];
-    uint16_t flags;
-    uint8_t  fg_color_r;
-    uint8_t  fg_color_g;
-    uint8_t  fg_color_b;
-    uint8_t  bg_color_r;
-    uint8_t  bg_color_g;
-    uint8_t  bg_color_b;
+    uint8_t utf8_char[4];
+    uint8_t flags;
+    uint8_t fg_color_r;
+    uint8_t fg_color_g;
+    uint8_t fg_color_b;
+    uint8_t bg_color_r;
+    uint8_t bg_color_g;
+    uint8_t bg_color_b;
 };
 
 enum parser_state {
@@ -80,7 +91,7 @@ struct termbuf {
     int ncols;
     int row;
     int col;
-    uint8_t flags;
+    uint16_t flags;
     uint8_t fg_color_r;
     uint8_t fg_color_g;
     uint8_t fg_color_b;
