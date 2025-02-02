@@ -231,8 +231,16 @@ void font_calculate_sizes(int screen_height,
 void font_render(int xoffset, int yoffset, int row, int col,
                  struct termbuf_char *c) {
 
+    int bitmap_width, bitmap_height, bitmap_xoffset, bitmap_yoffset;
+    unsigned char *bitmap;
+
     if ((c->flags & FLAG_LENGTH_MASK) == FLAG_LENGTH_0) {
-        return;
+        bitmap_width = 0;
+        bitmap_height = 0;
+        bitmap_xoffset = 0;
+        bitmap_yoffset = 0;
+        bitmap = NULL;
+        goto do_the_render;
     }
 
     // Hardcode the direction, script and language.
@@ -245,7 +253,12 @@ void font_render(int xoffset, int yoffset, int row, int col,
     assert(len > 0);
 
     if (len == 1 && *c->utf8_char == (uint8_t) ' ') {
-        return;
+        bitmap_width = 0;
+        bitmap_height = 0;
+        bitmap_xoffset = 0;
+        bitmap_yoffset = 0;
+        bitmap = NULL;
+        goto do_the_render;
     }
 
     hb_buffer_add_utf8(buf,
@@ -273,9 +286,7 @@ void font_render(int xoffset, int yoffset, int row, int col,
         assert(false);
     }
 
-    int bitmap_width, bitmap_height, bitmap_xoffset, bitmap_yoffset;
-
-    unsigned char *bitmap = stbtt_GetGlyphBitmap(
+    bitmap = stbtt_GetGlyphBitmap(
         &font_info,
         font_scale,
         font_scale,
@@ -288,6 +299,8 @@ void font_render(int xoffset, int yoffset, int row, int col,
     if (bitmap == NULL) {
         assert(false);
     }
+
+ do_the_render:
 
     glTexImage2D(GL_TEXTURE_2D,    // target
                  0,                // level
