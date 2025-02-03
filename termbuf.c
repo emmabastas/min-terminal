@@ -1065,7 +1065,55 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 assert(false);
             case 47:  // Background color 1.
                 assert(false);
-            case 48:  // Wierd background color ??
+            case 48:  // Set 8-bit foreground color or rgb color.
+                // For more information, see how case 38 is handlede, this case
+                // is the same but for background colors.
+
+                // There should be at least one parameter following the '38'.
+                assert(i + 1 < len);
+
+                // We expect `q` to be either '5' or '2'..
+                q = data->params[i + 1];
+
+                // Set 8-bit background color.
+                if (q == 5) {
+                    // There should be at least one parameter following the '5'.
+                    assert(i + 2 < len);
+                    uint8_t q2 = data->params[i + 1];
+                    q2 = q2 == -1 ? 0 : q2;
+                    assert(0 <= q2 && q2 <= 255);
+                    tb->bg_color_r = eight_bit_colors[q2 * 3];
+                    tb->bg_color_g = eight_bit_colors[q2 * 3 + 1];
+                    tb->bg_color_b = eight_bit_colors[q2 * 3 + 2];
+
+                    // Continue parsing any potential remaining graphics
+                    // parameters.
+                    i += 2;
+                    continue;
+                }
+
+                // Set rgb color.
+                if (q == 2) {
+                    // There should be at least three parameters following the
+                    // '2'.
+                    assert(i + 4 < len);
+                    uint8_t q2 = data->params[i + 1]; // red.
+                    uint8_t q3 = data->params[i + 2]; // green.
+                    uint8_t q4 = data->params[i + 3]; // blue.
+                    assert(0 <= q2 && q2 <= 255);
+                    assert(0 <= q3 && q3 <= 255);
+                    assert(0 <= q4 && q4 <= 255);
+                    tb->bg_color_r = q2;
+                    tb->bg_color_g = q3;
+                    tb->bg_color_b = q4;
+
+                    // Continue parsing any potential remaining graphics
+                    // parameters.
+                    i += 4;
+                    continue;
+
+                }
+
                 assert(false);
             case 49:  // Defailt background color.
                 assert(false);
