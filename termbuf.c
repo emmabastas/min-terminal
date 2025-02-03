@@ -8,7 +8,8 @@
 
 #include <X11/Xlib.h>
 
-#include "CuTest.h"
+#include "./util.h"
+#include "./CuTest.h"
 
 
 
