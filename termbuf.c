@@ -481,13 +481,17 @@ void action_fail(struct termbuf *tb, char ch) {
                 "    current_param: %d\n"
                 "    param1       : %d\n"
                 "    param2       : %d\n"
-                "    param3       : %d\n",
+                "    param3       : %d\n"
+                "    param4       : %d\n"
+                "    param5       : %d\n",
                 tb->p_data.ansi_csi_chomping.initial_char,
                 tb->p_data.ansi_csi_chomping.initial_char,
                 tb->p_data.ansi_csi_chomping.current_param,
                 tb->p_data.ansi_csi_chomping.params[0],
                 tb->p_data.ansi_csi_chomping.params[1],
-                tb->p_data.ansi_csi_chomping.params[2]);
+                tb->p_data.ansi_csi_chomping.params[2],
+                tb->p_data.ansi_csi_chomping.params[3],
+                tb->p_data.ansi_csi_chomping.params[4]);
     }
 
     if (tb->p_state == P_STATE_OSC || tb->p_state == P_STATE_OSC_ESC) {
@@ -704,6 +708,8 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     uint16_t p1 = data->params[0];
     uint16_t p2 = data->params[1];
     uint16_t p3 = data->params[2];
+    uint16_t p4 = data->params[3];
+    uint16_t p5 = data->params[4];
 
     // Now commes a big task of figuring out what the parsed ANSI escape sequnce
     // means.
@@ -1136,19 +1142,22 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     }
 
     // It's an escape sequence unknown to us.
-    printf("Got an unknown ANSI escape sequence with:\n"
+    printf("\n"
+           "Got an unknown ANSI escape sequence with:\n"
            "    ch            : '%c' (decimal %d).\n"
            "    initial_char  : '%c' (decimal %d).\n"
            "    current_param : %d.\n"
            "    len           : %d.\n"
            "    param1        : %d.\n"
            "    param2        : %d.\n"
-           "    param3        : %d.\n",
+           "    param3        : %d.\n"
+           "    param4        : %d.\n"
+           "    param5        : %d.\n",
            ch, ch,
            ic, ic,
            data->current_param,
            len,
-           p1, p2, p3);
+           p1, p2, p3, p4, p5);
     assert(false);
 }
 

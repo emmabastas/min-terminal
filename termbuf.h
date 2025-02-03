@@ -71,7 +71,7 @@ enum parser_state {
 };
 #define NSTATES 9
 
-#define CSI_CHOMPING_MAX_PARAMS 4
+#define CSI_CHOMPING_MAX_PARAMS 5
 
 union parser_data {
     struct utf8_chomping {
@@ -83,7 +83,7 @@ union parser_data {
         uint8_t  current_param;
         // if a param is -1 (i.e. largest uint16_t) then we interpret it as
         // missing, for instance ESC[;10H would give something like:
-        // `params = { -1, 10, -1}
+        // `params = { -1, 10, -1, -1, -1}
         uint16_t params[CSI_CHOMPING_MAX_PARAMS];
     } ansi_csi_chomping;
     struct ansi_osc_chomping {
