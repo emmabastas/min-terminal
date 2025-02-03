@@ -25,11 +25,6 @@
 
 #define RINGBUF_CAPACITY 1024
 
-char *SHELL =
-    //"/bin/sh";
-    //"/nix/store/717iy55ncqs0wmhdkwc5fg2vci5wbmq8-bash-5.2p32/bin/bash";
-    "/nix/store/p67rlwmrpf6j3q66dlm0ajyid5f48njk-user-environment/bin/nu";
-
 Display *display;
 int window;
 int screen;
@@ -224,57 +219,32 @@ void xevent() {
     assert(false);
 }
 
-// From simpleterminal.
-int exec_shell(char *cmd, char **args)
-{
-	char *prog, *arg;
-
-	int errno = 0;
-
-    //char *shell_name = getenv("SHELL");
-    char *shell_name = SHELL;
-    if (shell_name == NULL) {
-        assert(false);
-    }
-
-    if (args) {
-        prog = args[0];
-        arg = NULL;
-        //} else if (scroll) {
-        //	prog = scroll;
-        //	arg = utmp ? utmp : sh;
-        //} else if (utmp) {
-        //	prog = utmp;
-        //	arg = NULL;
-    } else {
-        prog = shell_name;
-        arg = NULL;
-    }
-    //DEFAULT(args, ((char *[]) {prog, arg, NULL}));
-
-    //unsetenv("COLUMNS");
-    //unsetenv("LINES");
-    //unsetenv("TERMCAP");
-    //setenv("LOGNAME", pw->pw_name, 1);
-    //setenv("USER", pw->pw_name, 1);
-    setenv("USER", "emma", 1);
-    setenv("SHELL", shell_name, 1);
-    //setenv("HOME", pw->pw_dir, 1);
-    setenv("HOME", "/home/emma", 1);
-    setenv("TERM", "st-256color", 1);
-
-    signal(SIGCHLD, SIG_DFL);
-    signal(SIGHUP,  SIG_DFL);
-    signal(SIGINT,  SIG_DFL);
-    signal(SIGQUIT, SIG_DFL);
-    signal(SIGTERM, SIG_DFL);
-    signal(SIGALRM, SIG_DFL);
-
-    // if execvp fails we return -1, otherwise we never return.
-    return execvp(prog, args);
-}
-
 int main(int argc, char **argv) {
+    char *shell_command;
+
+    if (argc == 1) {
+        shell_command = secure_getenv("SHELL");
+
+        // SHELL environment variable wasn't set (or "secure execution" is
+        // required but I won't handle that case).
+        if (shell_command == NULL) {
+            printf("Environment variable SHELL wasn't set, either give it a ");
+            printf("value or run `min-terminal [command]`\n");
+            return -1;
+        }
+    }
+
+    if (argc == 2) {
+        shell_command = argv[1];
+    }
+
+    if (argc > 2) {
+        // When I do more sophisticated argument parsing I should do this maybe?
+        //printf("Usage: min-terminal [[-e] command [args ...]]\n");
+        printf("Usage: min-terminal [command]\n");
+        return -1;
+    }
+
     display = XOpenDisplay(NULL);
     if (!display) { assert(false); }
 
@@ -575,9 +545,31 @@ int main(int argc, char **argv) {
         }
 
         char *args[2];
-        args[0] = SHELL;
+        args[0] = shell_command;
         args[1] = NULL;
-        ret = exec_shell(SHELL, args);
+
+        //unsetenv("COLUMNS");
+        //unsetenv("LINES");
+        //unsetenv("TERMCAP");
+        //setenv("LOGNAME", pw->pw_name, 1);
+        //setenv("USER", pw->pw_name, 1);
+        //setenv("USER", "emma", 1);
+        setenv("SHELL", shell_command, 1);
+        //setenv("HOME", pw->pw_dir, 1);
+        //setenv("HOME", "/home/emma", 1);
+        setenv("TERM", "st-256color", 1);
+
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGHUP,  SIG_DFL);
+        signal(SIGINT,  SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGALRM, SIG_DFL);
+
+        // If execvp fails it returns -1,
+        // if it succeeds then the new program takes over execution and this
+        // branch effectively halts.
+        int ret= execvp(shell_command, args);
         if (ret == -1) {
             assert(false);
         }
