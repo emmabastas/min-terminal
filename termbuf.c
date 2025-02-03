@@ -690,7 +690,39 @@ void action_csi_chomp_next_param(struct termbuf *tb, char ch) {
     assert(ch == ';');
 
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
-    assert(data->current_param <= CSI_CHOMPING_MAX_PARAMS - 2);
+
+    if(data->current_param >= CSI_CHOMPING_MAX_PARAMS - 1) {
+        uint8_t ic  = data->initial_char;
+        uint8_t len = data->current_param + 1;
+        if (data->params[data->current_param] == (uint16_t) -1) {
+            len --;
+        }
+        uint16_t p1 = data->params[0];
+        uint16_t p2 = data->params[1];
+        uint16_t p3 = data->params[2];
+        uint16_t p4 = data->params[3];
+        uint16_t p5 = data->params[4];
+        printf("\n"
+               "Got a CSI sequence with more than %d parameters, which is more "
+               "than this terminal supports:\n"
+               "    ch            : '%c' (decimal %d).\n"
+               "    initial_char  : '%c' (decimal %d).\n"
+               "    current_param : %d.\n"
+               "    len           : %d.\n"
+               "    param1        : %d.\n"
+               "    param2        : %d.\n"
+               "    param3        : %d.\n"
+               "    param4        : %d.\n"
+               "    param5        : %d.\n",
+               CSI_CHOMPING_MAX_PARAMS,
+               ch, ch,
+               ic, ic,
+               data->current_param,
+               len,
+               p1, p2, p3, p4, p5);
+        assert(false);
+    }
+
     data->current_param ++;
 }
 
