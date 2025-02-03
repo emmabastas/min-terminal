@@ -29,7 +29,6 @@ Display *display;
 int window;
 int screen;
 GLXContext glx_context;
-// GC gc;
 
 struct termbuf tb;
 
