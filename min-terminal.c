@@ -79,10 +79,13 @@ void event_loop() {
     render();
 
     while(True) {
+        // Check if any x11 event has occured and if so handle it.
         if (XPending(display) > 0) {
             xevent();
         }
 
+        // Check if the shell has given us any output to parse/display, and if
+        // so handle it.
         struct pollfd pfd = {
             .fd = primary_pty_fd,
             .events = POLLIN,
