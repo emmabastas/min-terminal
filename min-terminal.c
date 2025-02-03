@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <poll.h>
+#include <errno.h>
 #include <assert.h>
 #include <libgen.h>
 
@@ -571,9 +572,13 @@ int main(int argc, char **argv) {
         // If execvp fails it returns -1,
         // if it succeeds then the new program takes over execution and this
         // branch effectively halts.
-        int ret= execvp(shell_command, args);
+        int ret = execvp(shell_command, args);
         if (ret == -1) {
-            assert(false);
+            printf("Error executing shell command `%s`, errno %d: %s.\n",
+                   shell_command,
+                   errno,
+                   strerror(errno));
+            return -1;
         }
         assert(false);
     }
