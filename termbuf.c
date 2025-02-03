@@ -539,18 +539,22 @@ void action_c0(struct termbuf *tb, char ch) {
         tb->col --;
         return;
     case '\t':  // Tab stop.
-        // and-ing with this bitmasks truncates the number to be multiple of 8 (+1)
-        // (assuming the current column is smaller than 2^16 - 1).
-        tb->col = ((tb->col + 8) & 0b1111111111110000) + 1;
-        if (tb->col > tb->ncols) {
-            tb->col = 1;
-            tb->row ++;
-            if (tb->row > tb->nrows) {
-                //assert(false);
-                tb->row = 1;
+        {
+            // and-ing with this bitmasks truncates the number to be multiple of
+            // (+1), (assuming the current column is smaller than 2^16 - 1).
+            const int MULTIPLE_OF_EIGHT_BITMASK = 65520;  // 0b1111111111110000
+
+            tb->col = ((tb->col + 8) & MULTIPLE_OF_EIGHT_BITMASK) + 1;
+            if (tb->col > tb->ncols) {
+                tb->col = 1;
+                tb->row ++;
+                if (tb->row > tb->nrows) {
+                    //assert(false);
+                    tb->row = 1;
+                }
             }
+            return;
         }
-        return;
     case '\n':  // Line feed.
         tb->row ++;
         if (tb->row > tb->nrows) {
