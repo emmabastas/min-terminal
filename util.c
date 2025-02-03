@@ -46,7 +46,7 @@ char *util_xevent_to_string(int type) {
     return map[type - 2];
 }
 
-void print_escape_non_printable(unsigned char *data, size_t len) {
+void print_escape_non_printable(char *data, size_t len) {
     for(size_t i = 0; i < len; i++) {
         unsigned char ch = data[i];
         // Is it a printable char?

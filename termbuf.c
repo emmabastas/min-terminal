@@ -400,7 +400,7 @@ struct parser_table_entry parser_table[256 * NSTATES];
 
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
     while (len > 0) {
-        print_escape_non_printable(data, 1);
+        print_escape_non_printable((char *) data, 1);
 
         size_t index = tb->p_state * 256 + *data;
         struct parser_table_entry entry = parser_table[index];
