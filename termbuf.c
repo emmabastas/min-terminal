@@ -454,11 +454,25 @@ void action_fail(struct termbuf *tb, char ch) {
     // TODO: A problem here is that we might be displaying parse data from
     //       a previous "round", leading us astray when debugging.
 
+    const char *PARSER_STATE_NAME_MAP[] = {
+        [P_STATE_GROUND] = "P_STATE_GROUND",
+        [P_STATE_CHOMP1] = "P_STATE_CHOMP1",
+        [P_STATE_CHOMP2] = "P_STATE_CHOMP2",
+        [P_STATE_CHOMP3] = "P_STATE_CHOMP3",
+        [P_STATE_ESC]    = "P_STATE_ESC",
+        [P_STATE_CSI]    = "P_STATE_CSI",
+        [P_STATE_CSI_PARAMS] = "P_STATE_CSI_PARAMS",
+        [P_STATE_OSC]     = "P_STATE_OSC",
+        [P_STATE_OSC_ESC] = "P_STATE_OSC_ESC",
+    };
+
     fprintf(stderr,
+            "\n",
             "Parser failed\n"
-            "    state        : %d\n"
+            "    state        : %d %s\n"
             "    ch           : %d / '%c'\n",
             tb->p_state,
+            PARSER_STATE_NAME_MAP[tb->p_state],
             ch, ch);
 
     if (tb->p_state == P_STATE_CSI_PARAMS) {
