@@ -1015,10 +1015,27 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     continue;
                 }
 
-                // Set rgb color
-                if (p2 == 2) {
-                    assert(false);
+                // Set rgb color.
+                if (q == 2) {
+                    // There should be at least three parameters following the
+                    // '2'.
+                    assert(i + 4 < len);
+                    uint8_t q2 = data->params[i + 1]; // red.
+                    uint8_t q3 = data->params[i + 2]; // green.
+                    uint8_t q4 = data->params[i + 3]; // blue.
+                    assert(0 <= q2 && q2 <= 255);
+                    assert(0 <= q3 && q3 <= 255);
+                    assert(0 <= q4 && q4 <= 255);
+                    tb->fg_color_r = q2;
+                    tb->fg_color_g = q3;
+                    tb->fg_color_b = q4;
+
+                    // Continue parsing any potential remaining graphics
+                    // parameters.
+                    i += 4;
+                    continue;
                 }
+
                 assert(false);
             case 39:  // Default foreground color.
                 // Here we as the implementor apparently get to pick a color we
