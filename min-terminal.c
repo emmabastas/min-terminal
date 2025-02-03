@@ -180,7 +180,10 @@ void xevent() {
         printf("\n\x1B[36m> Got key '");
         print_escape_non_printable(buf, len);
         printf("' from x11.\x1B[0m\n");
-        write(primary_pty_fd, buf, len);
+        int did_write = write(primary_pty_fd, buf, len);
+        if (did_write == -1) {
+            assert(false);
+        }
         return;
     }
 
