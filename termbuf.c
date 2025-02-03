@@ -467,7 +467,7 @@ void action_fail(struct termbuf *tb, char ch) {
     };
 
     fprintf(stderr,
-            "\n",
+            "\n"
             "Parser failed\n"
             "    state        : %d %s\n"
             "    ch           : %d / '%c'\n",
