@@ -31,6 +31,12 @@
 // These are only used by the `struct termbuf`
 #define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
 #define FLAG_HIDE_CURSOR 512           // 0b0000001000000000
+// This flag determines what sequences the terminal should send to the shell
+// when arrow keys are pressed (TODO: In what way), the sequences to set and
+// unset this flag is ESC[?1h and ESC[?1l
+// see: https://vt100.net/docs/vt510-rm/DECCKM.html
+#define FLAG_CURSOR_KEY_MODE 1024      // 0b0000010000000000
+
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.

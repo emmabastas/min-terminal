@@ -713,7 +713,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-
     // ESC n D, CUB, move cursor backwards
     if (ch == 'D' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
@@ -779,15 +778,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         assert(false);
     }
 
-    // ESC[?2004h "Turn on bracketed paste mode."
-    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'h') {
-        tb->flags |= FLAG_BRACKETED_PASTE_MODE;
+    // ESC[?1h Set Cursor key mode (DECCKM)
+    if (ic == '?' && len == 1 && p1 == 1 && ch == 'h') {
+        tb->flags |= FLAG_CURSOR_KEY_MODE;
         return;
     }
-
-    // ESC[?2004l "Turn off bracketed paste mode."
-    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'l') {
-        tb->flags &= ~FLAG_BRACKETED_PASTE_MODE;
+    // ESC[?1l Reset Cursor key mode (DECCKM)
+    if (ic == '?' && len == 1 && p1 == 1 && ch == 'l') {
+        tb->flags &= ~FLAG_CURSOR_KEY_MODE;
         return;
     }
 
@@ -799,6 +797,18 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[?25l Hide the cursor.
     if (ic == '?' && len == 1 && p1 == 25 && ch == 'l') {
         tb->flags |= FLAG_HIDE_CURSOR;
+        return;
+    }
+
+    // ESC[?2004h "Turn on bracketed paste mode."
+    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'h') {
+        tb->flags |= FLAG_BRACKETED_PASTE_MODE;
+        return;
+    }
+
+    // ESC[?2004l "Turn off bracketed paste mode."
+    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'l') {
+        tb->flags &= ~FLAG_BRACKETED_PASTE_MODE;
         return;
     }
 
