@@ -25,7 +25,7 @@
 // for background colors. For instance ESC[31;42m sets the foreground to clolor
 // 1 and background to color 2.
 // https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
-const uint8_t four_bit_fg_colors[16 * 3] = {
+const uint8_t four_bit_colors[16 * 3] = {
     //                 FG/BG Name.
     0  , 0  , 0  ,  // 30/40 Black.
     153, 0  , 0  ,  // 31/41 Red.
@@ -47,8 +47,10 @@ const uint8_t four_bit_fg_colors[16 * 3] = {
 };
 
 // 8-bit colors.
+// TODO: The 3/4 bit colors list above should correspond to the first 8/16
+//       colors of this list? I.e. we don't need the list above?
 // https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
-const uint8_t eight_bit_fg_colors[256 * 3] = {
+const uint8_t eight_bit_colors[256 * 3] = {
     0, 0, 0,
     128, 0, 0,
     0, 128, 0,
@@ -831,9 +833,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             tb->flags == 0;
 
             // Set foreground to "bright white"
-            tb->fg_color_r = four_bit_fg_colors[15 * 3];
-            tb->fg_color_g = four_bit_fg_colors[15 * 3 + 1];
-            tb->fg_color_b = four_bit_fg_colors[15 * 3 + 2];
+            tb->fg_color_r = four_bit_colors[15 * 3];
+            tb->fg_color_g = four_bit_colors[15 * 3 + 1];
+            tb->fg_color_b = four_bit_colors[15 * 3 + 2];
             return;
         }
 
@@ -916,9 +918,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 30;
                     assert(0 <= i && i <= 8);
-                    tb->fg_color_r = four_bit_fg_colors[i * 3];
-                    tb->fg_color_g = four_bit_fg_colors[i * 3 + 1];
-                    tb->fg_color_b = four_bit_fg_colors[i * 3 + 2];
+                    tb->fg_color_r = four_bit_colors[i * 3];
+                    tb->fg_color_g = four_bit_colors[i * 3 + 1];
+                    tb->fg_color_b = four_bit_colors[i * 3 + 2];
                     continue;
                 }
             case 38:  // Set 8-bit foreground color or rgb color.
@@ -946,14 +948,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
                 // Set 8-bit foreground color.
                 if (q == 5) {
-                    // Thre should be at least one parameter following the '5'.
+                    // There should be at least one parameter following the '5'.
                     assert(i + 2 < len);
                     uint8_t q2 = data->params[i + 1];
                     q2 = q2 == -1 ? 0 : q2;
                     assert(0 <= q2 && q2 <= 255);
-                    tb->fg_color_r = eight_bit_fg_colors[q2 * 3];
-                    tb->fg_color_g = eight_bit_fg_colors[q2 * 3 + 1];
-                    tb->fg_color_b = eight_bit_fg_colors[q2 * 3 + 2];
+                    tb->fg_color_r = eight_bit_colors[q2 * 3];
+                    tb->fg_color_g = eight_bit_colors[q2 * 3 + 1];
+                    tb->fg_color_b = eight_bit_colors[q2 * 3 + 2];
 
                     // Continue parsing any potential remaining graphics
                     // parameters.
@@ -973,9 +975,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 // white" to be our default.
                 {
                     int i = 15;
-                    tb->fg_color_r = four_bit_fg_colors[i * 3];
-                    tb->fg_color_g = four_bit_fg_colors[i * 3 + 1];
-                    tb->fg_color_b = four_bit_fg_colors[i * 3 + 2];
+                    tb->fg_color_r = four_bit_colors[i * 3];
+                    tb->fg_color_g = four_bit_colors[i * 3 + 1];
+                    tb->fg_color_b = four_bit_colors[i * 3 + 2];
                     continue;
                 }
             case 40:  // Background color 1.
@@ -1089,9 +1091,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 90;
                     assert(0 <= i && i <= 8);
-                    tb->fg_color_r = four_bit_fg_colors[(i + 8) * 3];
-                    tb->fg_color_g = four_bit_fg_colors[(i + 8) * 3 + 1];
-                    tb->fg_color_b = four_bit_fg_colors[(i + 8) * 3 + 2];
+                    tb->fg_color_r = four_bit_colors[(i + 8) * 3];
+                    tb->fg_color_g = four_bit_colors[(i + 8) * 3 + 1];
+                    tb->fg_color_b = four_bit_colors[(i + 8) * 3 + 2];
                     continue;
                 }
             case 98:
