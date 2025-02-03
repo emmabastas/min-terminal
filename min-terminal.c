@@ -37,6 +37,7 @@ XEvent event;
 
 XIC input_context;
 
+pid_t shell_pid;       // The PID of the shell process.
 int primary_pty_fd;    // AKA the "master" end.
 int secondary_pty_fd;  // AKA the "slave" end.
 
@@ -79,7 +80,22 @@ void event_loop() {
 
     render();
 
-    while(True) {
+    while(true) {
+        // Check if the shell process has terminated.
+        int shell_status;
+        int ret = waitpid(shell_pid, &shell_status, WNOHANG);
+        if (ret == -1) {  // Some error occured.
+            assert(false);
+        }
+        if (ret != 0) {  // 0 indicates that the shell process hasn't changed
+                         // state, so ret != 0 means something happened
+            // TODO: do somethings here.
+            // There are macros to get information from `shell_status`, see
+            // `man 2 wait`
+            printf("Child process has terminated.\n");
+            while(true) { usleep(1000); }
+        }
+
         // Check if any x11 event has occured and if so handle it.
         if (XPending(display) > 0) {
             xevent();
@@ -92,7 +108,7 @@ void event_loop() {
             .events = POLLIN,
             .revents = POLLIN,
         };
-        int ret = poll(&pfd, 1, 0);
+        ret = poll(&pfd, 1, 0);
         if (ret == -1) {  // means an error occured.
             assert(false);
         }
@@ -504,7 +520,7 @@ int main(int argc, char **argv) {
     if (pid < 0) {
         assert(false);
     }
-    if (pid == 0) {
+    if (pid == 0) {  // The child process
         secondary_pty_fd = open(primary_pty_name, O_RDWR);
         if (secondary_pty_fd == -1) {
             assert(false);
@@ -582,6 +598,9 @@ int main(int argc, char **argv) {
         }
         assert(false);
     }
+
+    // We're in the parent process here
+    shell_pid = pid;
 
     termbuf_initialize(nrows, ncols, primary_pty_fd, &tb);
 
