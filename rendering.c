@@ -53,6 +53,7 @@ struct s_uniform_locations {
     GLint bitmap_yoffset;
     GLint descent;
     GLint fg_color;
+    GLint bg_color;
 } uniform_locations;
 
 void rendering_initialize(Display *display, int window, GLXContext context) {
@@ -122,6 +123,7 @@ void rendering_initialize(Display *display, int window, GLXContext context) {
         uniform int bitmap_yoffset; \n\
         uniform int descent; \n\
         uniform vec3 fg_color; \n\
+        uniform vec3 bg_color; \n\
         \n\
         layout(location = 0) out vec4 frag_color; \n\
         \n\
@@ -132,7 +134,10 @@ void rendering_initialize(Display *display, int window, GLXContext context) {
                 - ivec2(bitmap_xoffset, cell_height + bitmap_yoffset + descent) \n\
             ); \n\
             float intensity = texelFetch(tex, pixel_xy, 0).r; \n\
-            frag_color = vec4(intensity * fg_color, 1.0); \n\
+            // Is this a propper way to blend to fg and bg colors? \n\
+            frag_color = vec4(intensity * fg_color \n\
+                                + (1 - intensity) * bg_color, \n\
+                              1.0); \n\
         }";
 
     GLint fragmentshader = glCreateShader(GL_FRAGMENT_SHADER);
@@ -158,6 +163,7 @@ void rendering_initialize(Display *display, int window, GLXContext context) {
         .bitmap_yoffset = glGetUniformLocation(shaderprogram, "bitmap_yoffset"),
         .descent = glGetUniformLocation(shaderprogram, "descent"),
         .fg_color = glGetUniformLocation(shaderprogram, "fg_color"),
+        .bg_color = glGetUniformLocation(shaderprogram, "bg_color"),
     };
 
     blob = hb_blob_create_from_file_or_fail(ttf_path);
@@ -328,6 +334,10 @@ void rendering_render_cell(int xoffset, int yoffset, int row, int col,
                 c->fg_color_r / 255.f,
                 c->fg_color_g / 255.f,
                 c->fg_color_b / 255.f);
+    glUniform3f(uniform_locations.bg_color,
+                c->bg_color_r / 255.f,
+                c->bg_color_g / 255.f,
+                c->bg_color_b / 255.f);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
