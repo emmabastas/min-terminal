@@ -95,7 +95,7 @@
 #include <glad/gl.h>
 #include <glad/glx.h>
 
-#include "./font.h"
+#include "./rendering.h"
 #include "./ringbuf.h"
 #include "./termbuf.h"
 #include "./util.h"
@@ -142,7 +142,7 @@ void render() {
             struct termbuf_char *c =
                 tb.buf + (row - 1) * tb.ncols + col - 1;
 
-            font_render(0, 0, row, col, c);
+            rendering_render_cell(0, 0, row, col, c);
         }
     }
 
@@ -555,8 +555,8 @@ int main(int argc, char **argv) {
 
 
     int nrows, ncols;
-    font_initialize(display, window, glx_context);
-    font_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
+    rendering_initialize(display, window, glx_context);
+    rendering_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
 
     // Make an input context, used later to decode keypresses
 

@@ -55,7 +55,7 @@ struct s_uniform_locations {
     GLint fg_color;
 } uniform_locations;
 
-void font_initialize(Display *display, int window, GLXContext context) {
+void rendering_initialize(Display *display, int window, GLXContext context) {
     x_display = display;
     x_window = window;
     gl_context = context;
@@ -189,7 +189,7 @@ void font_initialize(Display *display, int window, GLXContext context) {
     }
 }
 
-void font_calculate_sizes(int screen_height,
+void rendering_calculate_sizes(int screen_height,
                           int screen_width,
                           int char_height,
                           int *nrows_ret,
@@ -228,8 +228,8 @@ void font_calculate_sizes(int screen_height,
     printf("descent %d\n", descent);
 }
 
-void font_render(int xoffset, int yoffset, int row, int col,
-                 struct termbuf_char *c) {
+void rendering_render_cell(int xoffset, int yoffset, int row, int col,
+                           struct termbuf_char *c) {
 
     int bitmap_width, bitmap_height, bitmap_xoffset, bitmap_yoffset;
     unsigned char *bitmap;
