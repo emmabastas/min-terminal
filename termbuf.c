@@ -889,10 +889,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         if (len == 0 || (len == 1 && p1 == 0)) {
             tb->flags == 0;
 
-            // Set foreground to "bright white"
+            // Set foreground to "Bright white".
             tb->fg_color_r = four_bit_colors[15 * 3];
             tb->fg_color_g = four_bit_colors[15 * 3 + 1];
             tb->fg_color_b = four_bit_colors[15 * 3 + 2];
+
+            // Set background color to "Black".
+            tb->bg_color_r = four_bit_colors[0];
+            tb->bg_color_g = four_bit_colors[1];
+            tb->bg_color_b = four_bit_colors[2];
             return;
         }
 
