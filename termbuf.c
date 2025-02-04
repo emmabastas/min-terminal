@@ -348,11 +348,19 @@ void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
     assert(len <= 4);
 
     if (tb->col > tb->ncols) {
-        tb->col = 1;
-        tb->row ++;
-        if (tb->row > tb->nrows) {
-            tb->row = tb->nrows;
-            termbuf_shift(tb);
+        // Check if we should wrap text or not?
+        if ((tb->flags & FLAG_AUTOWRAP_MODE) == 0) {
+            // If no wrapping we let this all be a no-op.
+            // If this the way it should be? I don't know but I think it's
+            // consistent with how st does it.
+            return;
+        } else { // AAAAH look at all this spagethi ;-;
+            tb->col = 1;
+            tb->row ++;
+            if (tb->row > tb->nrows) {
+                tb->row = tb->nrows;
+                termbuf_shift(tb);
+            }
         }
     }
 
@@ -845,6 +853,17 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[?1l Reset Cursor key mode (DECCKM)
     if (ic == '?' && len == 1 && p1 == 1 && ch == 'l') {
         tb->flags &= ~FLAG_CURSOR_KEY_MODE;
+        return;
+    }
+
+    // ESC[?1h Set autowrap mode (DECAWM)
+    if (ic == '?' && len == 1 && p1 == 7 && ch == 'h') {
+        tb->flags |= FLAG_AUTOWRAP_MODE;
+        return;
+    }
+    // ESC[?1l Reset autowrap mode (DECAWM)
+    if (ic == '?' && len == 1 && p1 == 7 && ch == 'l') {
+        tb->flags &= ~FLAG_AUTOWRAP_MODE;
         return;
     }
 

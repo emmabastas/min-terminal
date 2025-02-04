@@ -36,7 +36,11 @@
 // unset this flag is ESC[?1h and ESC[?1l
 // see: https://vt100.net/docs/vt510-rm/DECCKM.html
 #define FLAG_CURSOR_KEY_MODE 1024      // 0b0000010000000000
-
+// This flag determines wheter or not text should wrap to the next line if there
+// is no space on the current line. This flag is set and unset with ESC[?7h and
+// ESC[?7l
+// see: https://vt100.net/docs/vt510-rm/DECAWM.html
+#define FLAG_AUTOWRAP_MODE   2048      // 0b0000100000000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.
