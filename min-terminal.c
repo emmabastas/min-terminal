@@ -1,3 +1,73 @@
+/*
+  min-terminal.c does three things:
+  1) Has the `main` function, and parses CLI arguments.
+  2) Sets up the X11 window, creates the OpenGL context, and sets up the
+     terminal state.
+  3) Handles the event loop (see `event_loop`), this is where user interaction
+     is sent to the shell process, where instructions from the shell process
+     to the terminal are parsed and rendered.
+
+  Parts (1) and (2) are a bit dense but relatively uninteresting. You can read
+  the documentation for `void event_loop()` in this file if you want an overview
+  of how part (3) is done. What follows now is a little overview about terminals
+  and shells, what they are and how the communicate.
+
+  * THE TERMINAL AND THE SHELL
+
+    min-terminal is a terminal (emulator), and a terminal i little more than an
+    interface to another program, usually a shell (like sh, bash, zsh, etc). The
+    terminal records inputs from the user in terms of button presses, mouse
+    clicks and so on, and sends that to the shell. The shell in turn does
+    something with what it receives and sends back instructions to the terminal
+    telling it to display new text. In some sense the terminal is the body with
+    it's sensory organs and muscles whereas the shell is the brain.
+
+    The brain to the terminals body can be something other than a shell, for
+    instance you can launch a terminal and tell it to have a program like vim be
+    it's brain. However, in all of my source code I'm going to refer to the two
+    parts as TERMINAL and SHELL because that makes sense to me.
+
+  * HOW DOES THE TERMINAL AND THE SHELL COMMUNICATE?
+
+    The mechanism by which a terminal and a shell communicate is via a
+    PSEUDOTERMINAL (abbr. PTY). To understand this a little history might help;
+    Back in the day a terminal was an actually physical device, with a keyboard
+    and a screen (before screens a teletypewriter, TTY, was used) that was
+    connected to a big computer somewhere via a cable. In Linux all such
+    peripheral devices are interacted with as if they where files, and so back
+    in the day the shell would sit on the computer and read from a special file
+    in order to receive input from the terminal, it would then write to the same
+    special file in order to send instructions back to the terminal.
+
+    These days the terminal and the shell are processes on the same machine, but
+    we still pretend in some sense that they are connected over a peripheral.
+
+    In the code, the line `primary_pty_fd = posix_openpt(O_RDWR);` we ask the
+    kernel to give us a PTY, a pair of device files. One is called the
+    `primary_pty` and it's the device file that we -- the terminal process --
+    use to send and receive data from the shell. The other device file is the
+    `secondary_pty` and to the shell process this device file behaves just as if
+    it was a device file for a physical terminal connected via a cable.
+
+    We then call `pid_t pid = fork()` to create a child process, in this process
+    we make the stdin, stdout and stderr all refer to the `secondary_pty`
+    using `dup2(secondary_pty_fd, _);`, and when we've done that and some
+    additional setup we use `xecvp(shell_command, args);` to launch the shell
+    process and have it take over the child process. In the end it looks a
+    little like this:
+
+                                               /----------------\
+         min-terminal     <-read & write->     | primary_pty_fd |
+                                               \----------------/
+                                                         ^
+                        some sort of kernel glue -->     |
+                                                         v
+                                   /----------------------------------------\
+  shell process  <-read & write->  | stdin,stdout,stderr = secondary_pty_fd |
+                                   \----------------------------------------/
+
+ */
+
 #define _GNU_SOURCE
 
 #include <stdio.h>
@@ -18,6 +88,9 @@
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 
+// We're using GLAD as our OpenGL loader, and header files we're using we're
+// generated with the following link. The header files themselves are located in
+// ./glad/
 // https://gen.glad.sh/#generator=c&api=gl%3D4.6%2Cglx%3D1.4&profile=gl%3Dcompatibility%2Cgles1%3Dcommon&extensions=GL_ARB_debug_output%2CGL_KHR_debug%2CGLX_ARB_create_context&options=ALIAS%2CALIAS%2CLOADER
 #include <glad/gl.h>
 #include <glad/glx.h>
@@ -40,9 +113,9 @@ XEvent event;
 
 XIC input_context;
 
+int primary_pty_fd;    // Used by the terminal process.
+int secondary_pty_fd;  // Used by the shell process.
 pid_t shell_pid;       // The PID of the shell process.
-int primary_pty_fd;    // AKA the "master" end.
-int secondary_pty_fd;  // AKA the "slave" end.
 
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
@@ -78,6 +151,9 @@ void render() {
     glFlush();
 }
 
+/*
+  TODO: Write about the event loop.
+ */
 void event_loop() {
     XSelectInput(display, window, KeyPressMask|FocusChangeMask); // override prev
 
@@ -526,7 +602,7 @@ int main(int argc, char **argv) {
     if (pid < 0) {
         assert(false);
     }
-    if (pid == 0) {  // The child process
+    if (pid == 0) {  // The child process that will becomme the shell process.
         secondary_pty_fd = open(primary_pty_name, O_RDWR);
         if (secondary_pty_fd == -1) {
             assert(false);
