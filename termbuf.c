@@ -1012,7 +1012,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 if (q == 5) {
                     // There should be at least one parameter following the '5'.
                     assert(i + 2 < len);
-                    uint8_t q2 = data->params[i + 1];
+                    uint8_t q2 = data->params[i + 2];
                     q2 = q2 == -1 ? 0 : q2;
                     assert(0 <= q2 && q2 <= 255);
                     tb->fg_color_r = eight_bit_colors[q2 * 3];
@@ -1030,9 +1030,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     // There should be at least three parameters following the
                     // '2'.
                     assert(i + 4 < len);
-                    uint8_t q2 = data->params[i + 1]; // red.
-                    uint8_t q3 = data->params[i + 2]; // green.
-                    uint8_t q4 = data->params[i + 3]; // blue.
+                    uint8_t q2 = data->params[i + 2]; // red.
+                    uint8_t q3 = data->params[i + 3]; // green.
+                    uint8_t q4 = data->params[i + 4]; // blue.
                     assert(0 <= q2 && q2 <= 255);
                     assert(0 <= q3 && q3 <= 255);
                     assert(0 <= q4 && q4 <= 255);
@@ -1089,7 +1089,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 if (q == 5) {
                     // There should be at least one parameter following the '5'.
                     assert(i + 2 < len);
-                    uint8_t q2 = data->params[i + 1];
+                    uint8_t q2 = data->params[i + 2];
                     q2 = q2 == -1 ? 0 : q2;
                     assert(0 <= q2 && q2 <= 255);
                     tb->bg_color_r = eight_bit_colors[q2 * 3];
@@ -1107,9 +1107,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     // There should be at least three parameters following the
                     // '2'.
                     assert(i + 4 < len);
-                    uint8_t q2 = data->params[i + 1]; // red.
-                    uint8_t q3 = data->params[i + 2]; // green.
-                    uint8_t q4 = data->params[i + 3]; // blue.
+                    uint8_t q2 = data->params[i + 2]; // red.
+                    uint8_t q3 = data->params[i + 3]; // green.
+                    uint8_t q4 = data->params[i + 4]; // blue.
                     assert(0 <= q2 && q2 <= 255);
                     assert(0 <= q3 && q3 <= 255);
                     assert(0 <= q4 && q4 <= 255);
