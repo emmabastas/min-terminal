@@ -1079,21 +1079,21 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     continue;
                 }
             case 40:  // Background color 1.
-                assert(false);
             case 41:  // Background color 1.
-                assert(false);
             case 42:  // Background color 1.
-                assert(false);
             case 43:  // Background color 1.
-                assert(false);
             case 44:  // Background color 1.
-                assert(false);
             case 45:  // Background color 1.
-                assert(false);
             case 46:  // Background color 1.
-                assert(false);
             case 47:  // Background color 1.
-                assert(false);
+                {
+                    int i = param - 40;
+                    assert(0 <= i && i <= 8);
+                    tb->bg_color_r = four_bit_colors[i * 3];
+                    tb->bg_color_g = four_bit_colors[i * 3 + 1];
+                    tb->bg_color_b = four_bit_colors[i * 3 + 2];
+                    continue;
+                }
             case 48:  // Set 8-bit foreground color or rgb color.
                 // For more information, see how case 38 is handlede, this case
                 // is the same but for background colors.
