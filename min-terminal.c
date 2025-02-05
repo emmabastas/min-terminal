@@ -192,11 +192,20 @@ void event_loop() {
             assert(false);
         }
         if (ret > 0) {  // means we didn't timeout.
-            uint8_t buf[64];
-            size_t did_read = read(primary_pty_fd, buf, 63);
+            #define BUFSIZE 4096
+            uint8_t buf[BUFSIZE];
+            size_t did_read = read(primary_pty_fd, buf, BUFSIZE);
             if (did_read == 0) {  // the pty is closed!?
                 assert(false);
             }
+
+            if (did_read == BUFSIZE) {
+                // TODO: Maybe we should output info/warning that the buffer
+                //       wasn't big enough to read all available data and that
+                //       maybe we should consider making the buffer larger?
+                assert(false);
+            }
+
             termbuf_parse(&tb, buf, did_read);
             render();
         }
