@@ -1318,7 +1318,8 @@ void action_osc_chomp_end(struct termbuf *tb, char ch) {
         data->len --;
     }
     data->data[data->len] = '\0';
-    printf("Got an unexpected osc string \"%s\".\n", data->data);
+    printf("Got an unexpected OSC string \"%s\".\n", data->data);
+    assert(false);
 }
 
 /*[[[cog
