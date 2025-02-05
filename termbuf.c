@@ -977,7 +977,8 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             case 23:  // Neither italic "blackletter". (?)
                 assert(false);
             case 24:  // Not underlined.
-                assert(false);
+                tb->flags &= ~FLAG_UNDERLINE;
+                continue;
             case 25:  // Not blinking.
                 assert(false);
             case 26:  // Proportional spacing (not known to be used on terms).
