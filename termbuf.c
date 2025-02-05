@@ -1306,11 +1306,84 @@ void action_osc_chomp(struct termbuf *tb, char ch) {
 }
 
 void action_osc_chomp_end(struct termbuf *tb, char ch) {
+    // See
+    // - https://www.xfree86.org/current/ctlseqs.html
+    //   for OSC sequences supported by xterm.
+    // - https://wezfurlong.org/wezterm/escape-sequences.html#operating-system-command-sequences
+    // - https://iterm2.com/documentation-escape-codes.html
+    //   for some other random OSC sequences.
+
     struct ansi_osc_chomping *data = &tb->p_data.ansi_osc_chomping;
 
-    // A OSC sequence "ESC]0;<string>" means that the shell wants us to set
-    // the title of the terminal window. We ignore this
+    // ESC]0;<string>ST Set the title and icon nae of the terminal window.
     if(data->len >= 2 && data->data[0] == '0' && data->data[1] == ';') {
+        // TODO: Should we handle?
+        return;
+    }
+
+    // ESC]1;<string>ST Set the icon name of the terminal window.
+    if(data->len >= 2 && data->data[0] == '1' && data->data[1] == ';') {
+        // TODO: Should we handle?
+        return;
+    }
+
+    // ESC]2;<string>ST Set the title of the terminal window.
+    if(data->len >= 2 && data->data[0] == '2' && data->data[1] == ';') {
+        // TODO: Should we handle?
+        return;
+    }
+
+    // ESC]3;<string>ST Change an X property of the window. If <string> is of
+    // the form "<name>=<value> we set the prop to that value. If <string is of
+    // the form "<name>" we should delete that property.
+    if(data->len >= 2 && data->data[0] == '3' && data->data[1] == ';') {
+        // TODO: Handle.
+        assert(false);
+    }
+
+    // ESC]7;file:/<path>ST Set current working directory to <path>.
+    // This instruction has no effect on the shell itself, rather it's just
+    // information that the terminal may wish to use sometimes. Quoting
+    // wezfurlong.org: "When the current working directory has been set via OSC
+    // 7 [on macOS terminal], spawning a new tab will use the current working
+    // directory of the current tab, so that you don't have to manually change
+    // the directory."
+    if(data->len >= 2 && data->data[0] == '7' && data->data[1] == ';') {
+        // There's nothing we have to do here, maybe we'd want to use this info
+        // for something at some point in the future?
+        return;
+    }
+
+    // ESC]8;;<hyperlink>ST tells the terminal that the normal output that
+    // follows can be associated with <hyperlink> so that it's clickable. For
+    // instance, when you do `ls` in NuShell it can output something like
+    // ESC]8;;file:///home/emma/foo.txtSTfooESC]8;; which tell's the terminal
+    // that the text foo.txt has a link associated with it. A hyperlink region
+    // is ended with ESC]8;;
+    if(data->len >= 3
+       && data->data[0] == '8'
+       && data->data[1] == ';'
+       && data->data[2] == ';') {
+        // There's nothing we have to do here, maybe we'd want to use this info
+        // for something at some point in the future?
+        return;
+    }
+
+    // ESC]133;<A|B|C|D|D;<exit status>>ST Let's the terminal know about
+    // different "semantic regions" on the terminal. For instance "hey terminal,
+    // just FIY this current is all output of a previous command". This makes it
+    // possible for a terminal to implement some inteligent movement command
+    // like "jump back in the scrollback buffer to the previous command I
+    // executed".
+    if(data->len >= 5
+       && data->data[0] == '1'
+       && data->data[1] == '3'
+       && data->data[2] == '3'
+       && data->data[3] == ';'
+       && data->data[4] >= 'A'
+       && data->data[4] <= 'D') {
+        // There's nothing we have to do here, maybe we'd want to use this info
+        // for something at some point in the future?
         return;
     }
 
