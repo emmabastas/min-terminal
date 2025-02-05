@@ -41,6 +41,9 @@
 // ESC[?7l
 // see: https://vt100.net/docs/vt510-rm/DECAWM.html
 #define FLAG_AUTOWRAP_MODE   2048      // 0b0000100000000000
+// When this flag is set new screen output has the foreground and background
+// colors swapped. Set and unset with ESC[7m resp. ESC[27m.
+#define FLAG_INVERT_COLORS   4096      // 0b0001000000000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.

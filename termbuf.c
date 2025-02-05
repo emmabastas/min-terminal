@@ -367,14 +367,25 @@ void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
     size_t index = (tb->row - 1) * tb->ncols + (tb -> col - 1);
     memcpy(tb->buf[index].utf8_char, utf8_char, 4);
     tb->flags = (tb->flags & ~FLAG_LENGTH_MASK) | len;
-    // TODO pref: use memcpy instead.
-    tb->buf[index].flags = tb->flags;
-    tb->buf[index].fg_color_r = tb->fg_color_r;
-    tb->buf[index].fg_color_g = tb->fg_color_g;
-    tb->buf[index].fg_color_b = tb->fg_color_b;
-    tb->buf[index].bg_color_r = tb->bg_color_r;
-    tb->buf[index].bg_color_g = tb->bg_color_g;
-    tb->buf[index].bg_color_b = tb->bg_color_b;
+
+    if ((tb->flags & FLAG_INVERT_COLORS) == 0) {
+        tb->buf[index].flags = tb->flags;
+        tb->buf[index].fg_color_r = tb->fg_color_r;
+        tb->buf[index].fg_color_g = tb->fg_color_g;
+        tb->buf[index].fg_color_b = tb->fg_color_b;
+        tb->buf[index].bg_color_r = tb->bg_color_r;
+        tb->buf[index].bg_color_g = tb->bg_color_g;
+        tb->buf[index].bg_color_b = tb->bg_color_b;
+    } else { // When the FLAG_INVERT_COLORS is set we set the fg to the bg and
+             // vice-versa.
+        tb->buf[index].flags = tb->flags;
+        tb->buf[index].fg_color_r = tb->bg_color_r;
+        tb->buf[index].fg_color_g = tb->bg_color_g;
+        tb->buf[index].fg_color_b = tb->bg_color_b;
+        tb->buf[index].bg_color_r = tb->fg_color_r;
+        tb->buf[index].bg_color_g = tb->fg_color_g;
+        tb->buf[index].bg_color_b = tb->fg_color_b;
+    }
 
     // NB. Here we might end up setting the cursor just outside of the view,
     //     hence the check at the begining of this function.
@@ -904,9 +915,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // We got a so called select graphics rendition (SRG)
     // https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
     if (ch == 'm') {
-        // ESC[m, or ESC[0m, reset
+        // ESC[m, or ESC[0m. Reset all graphical rendition flags.
         if (len == 0 || (len == 1 && p1 == 0)) {
-            tb->flags == 0;
+            // These are all the flags that are set to zero.
+            tb->flags &= ~(FLAG_BOLD
+                           | FLAG_FAINT
+                           | FLAG_ITALIC
+                           | FLAG_UNDERLINE
+                           | FLAG_STRIKEOUT
+                           | FLAG_INVERT_COLORS);
 
             // Set foreground to "Bright white".
             tb->fg_color_r = four_bit_colors[15 * 3];
@@ -941,7 +958,8 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             case 6:  // Rapid blink.
                 assert(false);
             case 7:  // Swap foreground and background colors.
-                assert(false);
+                tb->flags |= FLAG_INVERT_COLORS;
+                continue;
             case 8:  // Invisible text.
                 assert(false);
             case 9:  // Strikeout.
@@ -983,8 +1001,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 assert(false);
             case 26:  // Proportional spacing (not known to be used on terms).
                 assert(false);
-            case 27:  // Not reversed (i.e. stop swapping bg and fg colors?).
-                assert(false);
+            case 27:  // Not reversed (i.e. undo case 7).
+                tb->flags &= ~FLAG_INVERT_COLORS;
+                continue;
             case 28:  // Not concealed.
                 assert(false);
             case 29:  // Not crossed out.
