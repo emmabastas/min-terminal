@@ -75,6 +75,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -175,11 +176,6 @@ void event_loop() {
             while(true) { usleep(1000); }
         }
 
-        // Check if any x11 event has occured and if so handle it.
-        if (XPending(display) > 0) {
-            xevent();
-        }
-
         // Check if the shell has given us any output to parse/display, and if
         // so handle it.
         struct pollfd pfd = {
@@ -213,17 +209,34 @@ void event_loop() {
     }
 }
 
-void xevent() {
+
+void *event_loop_x11_event(void *arguments) {
+    assert(arguments == NULL);
+
+    // NOTES ON THREAD SAFETY
+    // * `fprintf` on POSIX fprintf appears to be thread safe in the sense that
+    //    two threads in the same process can use fprintf in the same file
+    //    without the outputs getting interleaved. However, if I do multiple
+    //    printfps's then they could get interleaved, so that's something I
+    //    should fix in this function.
+    //    https://stackoverflow.com/a/64485222
+    // *  `write` I use `write` once to write to `primary_pty_fd`, i.e. send
+    //    data to the shell process. This can occur simultaneously as the main
+    //    thread does a `read(primary_pty_fd, _, _);` I honestly don't konw if
+    //    I'm in trouble if these happen at the same time..
+
+ start_over:
+
     XNextEvent(display, &event);
 
     if (event.type == FocusIn) {
         printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     if (event.type == FocusOut) {
         printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     if (event.type == KeyPress) {
@@ -242,7 +255,7 @@ void xevent() {
 
         // Nothing really happened, ignore.
         if (status == XLookupNone) {
-            return;
+            goto start_over;
         }
 
         // `buf` was too small, panic.
@@ -260,7 +273,7 @@ void xevent() {
 
         // We didn't write anything to `buf`, ignore.
         if (len == 0) {
-            return;
+            goto start_over;
         }
 
         printf("\n\x1B[36m> Got key '");
@@ -270,33 +283,33 @@ void xevent() {
         if (did_write == -1) {
             assert(false);
         }
-        return;
+        goto start_over;
     }
 
     if (event.type == KeyRelease) {
         printf("\n\x1B[36m> KeyRelease event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // Got a message from a client who sent it with `XSendEvent`
     // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
     if (event.type == ClientMessage) {
         printf("\n\x1B[36m> ClientMessage event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // Window state changed
     // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
     if (event.type == ConfigureNotify) {
         printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // https://tronche.com/gui/x/xlib/events/window-state-change/map.html
     // TODO: What does this indicate?
     if (event.type == MapNotify) {
         printf("\n\x1B[36m> MapNotify event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // https://tronche.com/gui/x/xlib/events/window-state-change/visibility.html
@@ -304,14 +317,14 @@ void xevent() {
     // unecessary graphics operations.
     if (event.type == VisibilityNotify) {
         printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // https://tronche.com/gui/x/xlib/events/exposure/expose.html
     // TODO: What does this indicate?
     if (event.type == Expose) {
         printf("\n\x1B[36m> Expose event\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // We have a new parent window.
@@ -319,7 +332,7 @@ void xevent() {
     // TODO: Should I do the resizing here?
     if (event.type == ReparentNotify) {
         printf("\n\x1B[36m> ReparentNotify\x1B[0m\n");
-        return;
+        goto start_over;
     }
 
     // We missed some event, error
@@ -697,9 +710,18 @@ int main(int argc, char **argv) {
 
     run_all_tests();
 
+    pthread_t thread_x11_event;
+    ret = pthread_create(&thread_x11_event,
+                         NULL,
+                         event_loop_x11_event,
+                         NULL);
+    if (ret != 0) {
+        assert(false);
+    }
+
     event_loop();
 
-    return 0;
+    assert(false);
 }
 
 // https://gist.github.com/liam-middlebrook/c52b069e4be2d87a6d2f
