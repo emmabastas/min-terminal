@@ -669,6 +669,13 @@ void action_fp(struct termbuf *tb, char ch) {
         return;
     }
 
+    // Application keypad (DECKPAM)
+    // https://vt100.net/docs/vt510-rm/DECKPAM.html
+    if (ch == '=') {
+        // I'm pretty sure this is a no-op for us
+        return;
+    }
+
     assert(false);
 }
 
