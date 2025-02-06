@@ -1131,7 +1131,10 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 tb->flags &= ~FLAG_FAINT;
                 continue;
             case 23:  // Neither italic "blackletter". (?)
-                assert(false);
+                // Right now we don't support blackletter, so we only unset the
+                // italic flag
+                tb->flags &= ~ FLAG_ITALIC;
+                continue;
             case 24:  // Not underlined.
                 tb->flags &= ~FLAG_UNDERLINE;
                 continue;
@@ -1391,13 +1394,13 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             case 89:
                 assert(false);
             case 90:  // Set bright foregrund color 1.
-            case 91:  // Set bright foregrund color 1.
-            case 92:  // Set bright foregrund color 1.
-            case 93:  // Set bright foregrund color 1.
-            case 94:  // Set bright foregrund color 1.
-            case 95:  // Set bright foregrund color 1.
-            case 96:  // Set bright foregrund color 1.
-            case 97:  // Set bright foregrund color 1.
+            case 91:  // Set bright foregrund color 2.
+            case 92:  // Set bright foregrund color 3.
+            case 93:  // Set bright foregrund color 4.
+            case 94:  // Set bright foregrund color 5.
+            case 95:  // Set bright foregrund color 6.
+            case 96:  // Set bright foregrund color 7.
+            case 97:  // Set bright foregrund color 8.
                 {
                     int i = param - 90;
                     assert(0 <= i && i <= 8);
@@ -1410,22 +1413,22 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 assert(false);
             case 99:
                 assert(false);
-            case 100:
-                assert(false);
-            case 101:
-                assert(false);
-            case 102:
-                assert(false);
-            case 103:
-                assert(false);
-            case 104:
-                assert(false);
-            case 105:
-                assert(false);
-            case 106:
-                assert(false);
-            case 107:
-                assert(false);
+            case 100:  // Set bright background color 1.
+            case 101:  // Set bright background color 2.
+            case 102:  // Set bright background color 3.
+            case 103:  // Set bright background color 4.
+            case 104:  // Set bright background color 5.
+            case 105:  // Set bright background color 6.
+            case 106:  // Set bright background color 7.
+            case 107:  // Set bright background color 8.
+                {
+                    int i = param - 100;
+                    assert(0 <= i && i <= 8);
+                    tb->bg_color_r = four_bit_colors[(i + 8) * 3];
+                    tb->bg_color_g = four_bit_colors[(i + 8) * 3 + 1];
+                    tb->bg_color_b = four_bit_colors[(i + 8) * 3 + 2];
+                    continue;
+                }
             }
         }
         return;
