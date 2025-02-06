@@ -1342,8 +1342,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 }
 
                 assert(false);
-            case 49:  // Defailt background color.
-                assert(false);
+            case 49:  // Default background color.
+                // See: case 39
+
+                // Set background color to black.
+                tb->bg_color_r = four_bit_colors[0];
+                tb->bg_color_g = four_bit_colors[1];
+                tb->bg_color_b = four_bit_colors[2];
+                continue;
             case 50:
                 assert(false);
             case 51:
