@@ -906,6 +906,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // ESC[<n>G Cursor Character Absolute (CHA)
+    // See: https://vt100.net/docs/vt510-rm/CHA.html
+    if (ic == '\0' && ch == 'G' && len == 1) {
+        // TODO
+        printf("\nTODO CHA\n");
+        return;
+    }
+
     // ESC n ; m H, CUP, set cursor position
     if (ic == '\0' && ch == 'H' && len <= 2) {
         p1 = p1 == -1 ? 1 : p1;
