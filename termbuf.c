@@ -1009,6 +1009,18 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // ESC[<t>;<b>r Set scrolling region (DECSTBM)
+    // See: https://vt100.net/docs/vt510-rm/DECSTBM.html
+    if (ic == '\0' && len <= 2 && ch == 'r') {
+
+        // from vt100.net:
+        // > The value of the top margin (Pt) must be less than the bottom
+        // > margin (Pb).
+        assert(p1 < p2);
+        printf("TODO: Handle DECSTBM\n");
+        return;
+    }
+
     // ESC[?1h Set Cursor key mode (DECCKM)
     if (ic == '?' && len == 1 && p1 == 1 && ch == 'h') {
         tb->flags |= FLAG_CURSOR_KEY_MODE;
