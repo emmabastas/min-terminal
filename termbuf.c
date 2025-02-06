@@ -979,6 +979,36 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         printf("\nTODO VPA\n");
         return;
     }
+
+    // ESC[<p₁>;...l Reset mode (RM).
+    // See: https://vt100.net/docs/vt510-rm/RM.html
+    if (ic == '\0' && ch == 'l') {
+        // You use this sequence to reset either ANSI modes (?) or DEC modes (?)
+        // This table:
+        //    https://vt100.net/docs/vt510-rm/DECRQM.html#T5-8
+        // contains DEC modes and their corresponding parameter.
+
+        // We iterate through each parameter as it specifices a mode to reset.
+        for (int i = 0; i < len; i++) {
+            uint16_t p = data->params[i];
+
+            switch(p) {
+            // Reset scrolling (DECSCLM)
+            // See: https://vt100.net/docs/vt510-rm/DECSCLM.html
+            case 4:
+                // As the situation is right now we haven't implemented DECSCLM
+                // anyways so resetting DECSLCL is a no-op.
+                continue;
+            default:
+                // some parameter is unhandelded.
+                printf("\nReset mode (RM), unhandeled parameter: %d\n", p);
+                assert(false);
+            }
+        }
+
+        return;
+    }
+
     // ESC[?1h Set Cursor key mode (DECCKM)
     if (ic == '?' && len == 1 && p1 == 1 && ch == 'h') {
         tb->flags |= FLAG_CURSOR_KEY_MODE;
