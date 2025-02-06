@@ -972,6 +972,13 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         assert(false);
     }
 
+    // ESC[<n>d Line Position Absolute (VPA)
+    // See: https://vt100.net/docs/vt510-rm/VPA.html
+    if (ic == '\0' && ch == 'd') {
+        // TODO: handle
+        printf("\nTODO VPA\n");
+        return;
+    }
     // ESC[?1h Set Cursor key mode (DECCKM)
     if (ic == '?' && len == 1 && p1 == 1 && ch == 'h') {
         tb->flags |= FLAG_CURSOR_KEY_MODE;
