@@ -1054,6 +1054,19 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // ESC[?1049h enable alternative screen buffer.
+    if (ic == '?' && len == 1 && p1 == 1049 && ch == 'h') {
+        // TODO: handle this.
+        printf("TODO handle ESC[?1049h\n");
+        return;
+    }
+    // ESC[?1049h enable alternative screen buffer.
+    if (ic == '?' && len == 1 && p1 == 1049 && ch == 'l') {
+        // TODO: handle this.
+        printf("TODO handle ESC[?1049l\n");
+        return;
+    }
+
     // ESC[?2004h "Turn on bracketed paste mode."
     if (ic == '?' && len == 1 && p1 == 2004 && ch == 'h') {
         tb->flags |= FLAG_BRACKETED_PASTE_MODE;
