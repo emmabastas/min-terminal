@@ -676,6 +676,7 @@ void action_fp(struct termbuf *tb, char ch) {
         return;
     }
 
+    printf("\naction_fp, unhandeled parameter %d / %c\n", ch, ch);
     assert(false);
 }
 
