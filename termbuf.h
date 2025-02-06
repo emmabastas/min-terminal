@@ -65,18 +65,23 @@ enum parser_state {
     P_STATE_CHOMP3 = 3,
     // The parser encountered the C0/C1 control character "ESC".
     P_STATE_ESC    = 4,
-    // The parser has now encountered "ESC[", meaning we started an escape
+    // The parser has now encountered "ESC" followed by a byte in the range
+    // 32-47 (decimal), meaning we've started parsing an "nF" escape sequence.
+    // See: https://en.wikipedia.org/wiki/ANSI_escape_code#nF_Escape_sequences
+    P_STATE_NF = 5,
+    // The parser has now encountered "ESC[", meaning we started a CSI escape
     // sequence.
-    P_STATE_CSI    = 5,
-    P_STATE_CSI_PARAMS = 6,
-    // The parser has now encountered "ESC]", meaning we started an OSC sequence
-    // We won't do anything with the OSC sequences so we just chomp them til
-    // their end (marked by "ESC\" (C1 "ST")) and then ignore the results.
-    P_STATE_OSC     = 7,
+    P_STATE_CSI        = 6,
+    P_STATE_CSI_PARAMS = 7,
+    // The parser has now encountered "ESC]", meaning we started an OSC escape
+    // sequence We won't do anything with the OSC sequences so we just chomp
+    // them til their end (marked by "ESC\" (C1 "ST")) and then ignore the
+    // results.
+    P_STATE_OSC        = 8,
     // We got the "ESC" in what we pressume to be a C1 string terminator "ESC\".
-    P_STATE_OSC_ESC = 8,
+    P_STATE_OSC_ESC    = 9,
 };
-#define NSTATES 9
+#define NSTATES 10
 
 #define CSI_CHOMPING_MAX_PARAMS 5
 
