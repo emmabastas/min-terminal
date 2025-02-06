@@ -19,6 +19,10 @@
 
 
 
+void csi_dec_private_mode_set(struct termbuf *tb, char final_byte);
+
+
+
 // 3/4 -bit colors.
 // According to the standard there are 8 predetermined (though configurable by
 // the user) than can be used to specify foreground an background colors. You
@@ -875,6 +879,18 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     uint16_t p4 = data->params[3];
     uint16_t p5 = data->params[4];
 
+    // ESC[?<p>h ESC[?<p>l
+    // See `void csi_dec_private_mode_set` for documentation on these types of
+    // sequences.
+    if (ic == '?' && (ch == 'h' || ch == 'l')) {
+        assert(len == 1);  // I think all of these sequences always have exactly
+                           // ine parameter.
+        csi_dec_private_mode_set(tb, ch);
+        return;
+    }
+
+    assert(ic == '\0');
+
     // Now commes a big task of figuring out what the parsed ANSI escape sequnce
     // means.
 
@@ -908,14 +924,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC[<n>G Cursor Character Absolute (CHA)
     // See: https://vt100.net/docs/vt510-rm/CHA.html
-    if (ic == '\0' && ch == 'G' && len == 1) {
+    if (ch == 'G' && len == 1) {
         // TODO
         printf("\nTODO CHA\n");
         return;
     }
 
     // ESC n ; m H, CUP, set cursor position
-    if (ic == '\0' && ch == 'H' && len <= 2) {
+    if (ch == 'H' && len <= 2) {
         p1 = p1 == -1 ? 1 : p1;
         p2 = p2 == -1 ? 1 : p2;
         tb->row = p1;
@@ -974,7 +990,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC[<n>d Line Position Absolute (VPA)
     // See: https://vt100.net/docs/vt510-rm/VPA.html
-    if (ic == '\0' && ch == 'd') {
+    if (ch == 'd') {
         // TODO: handle
         printf("\nTODO VPA\n");
         return;
@@ -982,7 +998,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC[<p₁>;...l Reset mode (RM).
     // See: https://vt100.net/docs/vt510-rm/RM.html
-    if (ic == '\0' && ch == 'l') {
+    if (ch == 'l') {
         // You use this sequence to reset either ANSI modes (?) or DEC modes (?)
         // This table:
         //    https://vt100.net/docs/vt510-rm/DECRQM.html#T5-8
@@ -1011,7 +1027,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC[<t>;<b>r Set scrolling region (DECSTBM)
     // See: https://vt100.net/docs/vt510-rm/DECSTBM.html
-    if (ic == '\0' && len <= 2 && ch == 'r') {
+    if (len <= 2 && ch == 'r') {
 
         // from vt100.net:
         // > The value of the top margin (Pt) must be less than the bottom
@@ -1021,67 +1037,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC[?1h Set Cursor key mode (DECCKM)
-    if (ic == '?' && len == 1 && p1 == 1 && ch == 'h') {
-        tb->flags |= FLAG_CURSOR_KEY_MODE;
-        return;
-    }
-    // ESC[?1l Reset Cursor key mode (DECCKM)
-    if (ic == '?' && len == 1 && p1 == 1 && ch == 'l') {
-        tb->flags &= ~FLAG_CURSOR_KEY_MODE;
-        return;
-    }
-
-    // ESC[?1h Set autowrap mode (DECAWM)
-    if (ic == '?' && len == 1 && p1 == 7 && ch == 'h') {
-        tb->flags |= FLAG_AUTOWRAP_MODE;
-        return;
-    }
-    // ESC[?1l Reset autowrap mode (DECAWM)
-    if (ic == '?' && len == 1 && p1 == 7 && ch == 'l') {
-        tb->flags &= ~FLAG_AUTOWRAP_MODE;
-        return;
-    }
-
-    // ESC[?25h Show the cursor.
-    if (ic == '?' && len == 1 && p1 == 25 && ch == 'h') {
-        tb->flags &= ~FLAG_HIDE_CURSOR;
-        return;
-    }
-    // ESC[?25l Hide the cursor.
-    if (ic == '?' && len == 1 && p1 == 25 && ch == 'l') {
-        tb->flags |= FLAG_HIDE_CURSOR;
-        return;
-    }
-
-    // ESC[?1049h enable alternative screen buffer.
-    if (ic == '?' && len == 1 && p1 == 1049 && ch == 'h') {
-        // TODO: handle this.
-        printf("TODO handle ESC[?1049h\n");
-        return;
-    }
-    // ESC[?1049h enable alternative screen buffer.
-    if (ic == '?' && len == 1 && p1 == 1049 && ch == 'l') {
-        // TODO: handle this.
-        printf("TODO handle ESC[?1049l\n");
-        return;
-    }
-
-    // ESC[?2004h "Turn on bracketed paste mode."
-    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'h') {
-        tb->flags |= FLAG_BRACKETED_PASTE_MODE;
-        return;
-    }
-
-    // ESC[?2004l "Turn off bracketed paste mode."
-    if (ic == '?' && len == 1 && p1 == 2004 && ch == 'l') {
-        tb->flags &= ~FLAG_BRACKETED_PASTE_MODE;
-        return;
-    }
-
     // ESC[6n "Device status report"
     // We transmit "ESC[n;mR" to the shell where n is row and m is column.
-    if (ic == '\0' && len == 1 && p1 == 6 && ch == 'n') {
+    if (len == 1 && p1 == 6 && ch == 'n') {
         printf("\n\x1B[36mTransmitting \"ESC[%d;%dR\" to shell.\x1B[0m\n",
                tb->row,
                tb->col);
@@ -1488,6 +1446,84 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
            data->current_param,
            len,
            p1, p2, p3, p4, p5);
+    assert(false);
+}
+
+void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
+    // This function is called whenever an escape sequence of the form
+    //     ESC[?<p>h or ESC[?<p>l
+    // is found. These function are for setting and unsetting "DEC Private
+    // modes".. I think "private" means roughly that these types of modes
+    // werent't part of any sort of standard. Of course many of these modes have
+    // becomme de-facto standard and we wish to implement some of these here.
+    //
+    // As I understand it, the parameter <p> is a number that corresponds to one
+    // specific flag, and when the final byte is 'h' (high) we set the flag, and
+    // when the final byte is 'l' (low bit) we reset the flag. As such, the
+    // structure of this code is simple a switch statement that sets a local
+    // flag (i.e. a bitmask) variable, and in the end we use the flag variable
+    // to set the right bit of `tb->flags`.
+    //
+    // For details on what flags these parameters correspond to, see:
+    // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-?-Pm-h.1D0E
+
+    struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+
+    assert(data->initial_char == '?');
+    assert(final_byte == 'h' || final_byte == 'l');
+    assert(data->params[0] != (uint16_t) -1);
+    assert(data->params[1] == (uint16_t) -1);
+    assert(data->params[2] == (uint16_t) -1);
+    assert(data->params[3] == (uint16_t) -1);
+    assert(data->params[4] == (uint16_t) -1);
+
+    uint16_t flag = 0;
+
+    switch(data->params[0]) {
+    case 1:
+        // ESC[?1h Set Cursor key mode (DECCKM)
+        flag = FLAG_CURSOR_KEY_MODE;
+        break;
+    case 7:
+        // ESC[?1h Set autowrap mode (DECAWM)
+        flag = FLAG_AUTOWRAP_MODE;
+        break;
+    case 12:
+        // Start / stop blinking cursor.
+        // We don't want a blinking cursor for our terminal, so we just ignore
+        // this.
+        return;
+    case 25:
+        // ESC[?25h Show/hide the cursor.
+        flag = FLAG_HIDE_CURSOR;
+        break;
+    case 1049:
+        // ESC[?1049h enable alternative screen buffer.
+        // TODO: handle this.
+        printf("TODO handle ESC[?1049h / ESC[?1049l\n");
+        return;
+    case 2004:
+        // ESC[?2004h "Turn on bracketed paste mode."
+        flag = FLAG_BRACKETED_PASTE_MODE;
+        break;
+    default:
+        printf("\nWe got a sequence of the form ESC[?%d%c. But we don't know "
+               "how to handle parameter %d.\n",
+               data->params[0],
+               final_byte,
+               data->params[0]);
+        assert(false);
+    }
+
+    if (final_byte == 'h') {
+        tb->flags |= flag;
+        return;
+    }
+    if (final_byte == 'l') {
+        tb->flags &= ~flag;
+        return;
+    }
+
     assert(false);
 }
 
