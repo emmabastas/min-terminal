@@ -924,9 +924,10 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC[<n>G Cursor Character Absolute (CHA)
     // See: https://vt100.net/docs/vt510-rm/CHA.html
-    if (ch == 'G' && len == 1) {
-        // TODO
-        printf("\nTODO CHA\n");
+    if (ch == 'G') {
+        assert(len <= 1);
+        if (len == 0) { p1 = 1; }
+        tb->col = p1;
         return;
     }
 
@@ -991,8 +992,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[<n>d Line Position Absolute (VPA)
     // See: https://vt100.net/docs/vt510-rm/VPA.html
     if (ch == 'd') {
-        // TODO: handle
-        printf("\nTODO VPA\n");
+        assert(len <= 1);
+        if (len == 0) { p1 = 1; }
+        tb->row = p1;
         return;
     }
 
