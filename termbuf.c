@@ -474,6 +474,19 @@ void action_fail(struct termbuf *tb, char ch) {
     // TODO: A problem here is that we might be displaying parse data from
     //       a previous "round", leading us astray when debugging.
 
+    // TODO bug: I think that when we do `fprintf(stderr, ...)` we might run in
+    //           to problems with `event_loop_x11_event` in `min-terminal.c`.
+    //           Since commit a90c617657c2b23c713963c8bc2f6afd5ad79f4a
+    //           `event_loop_x11_event` runs in it's own thread and prints to
+    //           stdout. If we also print to stdout in another thread then glibc
+    //           makes this thread safe for us. But I guess that when we print
+    //           to stderr this thread safety check is not performed, but both
+    //           stdout and stderr try to access the same file descriptor (??)
+    //           and so it crashes. What I've done for now is I made all output
+    //           be directed to stdout. What I should really do is figure out
+    //           how threads work or -- probbly more desierable -- impement an
+    //           event loop without threads.
+
     const char *PARSER_STATE_NAME_MAP[] = {
         [P_STATE_GROUND] = "P_STATE_GROUND",
         [P_STATE_CHOMP1] = "P_STATE_CHOMP1",
@@ -486,7 +499,8 @@ void action_fail(struct termbuf *tb, char ch) {
         [P_STATE_OSC_ESC] = "P_STATE_OSC_ESC",
     };
 
-    fprintf(stderr,
+    //fprintf(stderr,
+    fprintf(stdout,
             "\n"
             "Parser failed\n"
             "    state        : %d %s\n"
@@ -496,7 +510,8 @@ void action_fail(struct termbuf *tb, char ch) {
             ch, ch);
 
     if (tb->p_state == P_STATE_CSI_PARAMS) {
-        fprintf(stderr,
+        //fprintf(stderr,
+        fprintf(stdout,
                 "    initial_char : %d / '%c'\n"
                 "    current_param: %d\n"
                 "    param1       : %d\n"
@@ -517,7 +532,8 @@ void action_fail(struct termbuf *tb, char ch) {
     if (tb->p_state == P_STATE_OSC || tb->p_state == P_STATE_OSC_ESC) {
         struct ansi_osc_chomping *data = &tb->p_data.ansi_osc_chomping;
         data->data[data->len] = '\0';
-        fprintf(stderr,
+        //fprintf(stderr,
+        fprintf(stdout,
                 "    len : %d\n"
                 "    contents \"%s\"\n",
                 data->len,
