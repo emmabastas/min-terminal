@@ -90,6 +90,10 @@ union parser_data {
         uint8_t len;
         uint8_t utf8_char[4];
     } utf8_chomping;
+    struct ansi_nf_chomping {
+        uint8_t  initial_char;  // in the range 32--47
+        uint16_t len;           // the number of bytes in the sequence
+    } ansi_nf_chomping;
     struct ansi_csi_chomping {
         uint8_t  initial_char;  // one of '\0' (no initial char) or '?'
         uint8_t  current_param;

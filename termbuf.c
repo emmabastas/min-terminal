@@ -708,7 +708,12 @@ void action_utf8_chomp_end(struct termbuf *tb, char ch) {
 }
 
 void action_nf_chomp_start(struct termbuf *tb, char ch) {
-    assert(false);
+    assert(32 <= ch <= 47);
+
+    tb->p_data.ansi_nf_chomping = (struct ansi_nf_chomping) {
+        .initial_char = ch,
+        .len = 1,
+    };
 }
 
 
@@ -716,7 +721,68 @@ void action_nf_chomp_continue(struct termbuf *tb, char ch) {
     assert(false);
 }
 
-void action_nf_chomp_end(struct termbuf *tb, char ch) {
+void action_nf_chomp_end(struct termbuf *tb, char final_byte) {
+    // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html has some info on
+    // some of these types of escape sequences.
+
+    // Check that final_byte is in the range it's supposed to be in.
+    assert(48 <= final_byte <= 126);
+
+    struct ansi_nf_chomping *data = &tb->p_data.ansi_nf_chomping;
+
+    // Right now we only support nF sequencees with exactly two bytes:
+    // - 1) The initial byte
+    // - 2) The final byte
+    if (data->len > 1) {
+        assert(false);
+    }
+
+    // We can subcategorize our nF sequences as follows:
+    // 48 `<= final_byte <= 63` ⇒ we have a "private-use escape sequence"
+    // There's also something where we look at the 2 least significant bits of
+    // the initial char 0.0
+    // See: https://en.wikipedia.org/wiki/ISO/IEC_2022#Character_set_designations
+
+    // Designate a G0 resp. G1 character set. Final byte denotes the character
+    // set to select. This are mostly obsolete now that we have unicode, however
+    // we still have to support some of this :-(
+    // There is some information about character sets here:
+    //     https://www.man7.org/linux/man-pages/man7/charsets.7.html
+    if (data->initial_char == '(' || data->initial_char == ')') {
+        // This link enumerates some of the character sets that the final byte
+        // denotes
+        //  https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Controls-beginning-with-ESC:ESC-lparen-C.F20
+
+        // From man 7 charsets:
+        // > There are 4 graphic character sets, called G0, G1, G2, and G3, and
+        // > one of them is the current character set for codes with high bit
+        // > zero (initially G0), and one of them is the current character set
+        // > for codes with high bit one (initially G1).  Each graphic
+        // > character set has 94 or 96 characters, and is essentially a 7-bit
+        // > character set.  It uses codes either 040–0177 (041–0176) or
+        // > 0240–0377 (0241–0376).  G0 always has size 94 and uses codes
+        // > 041–0176.
+
+        // From what I gather these character sets dictate how a byte should be
+        // mapped to a grapheme lile 'å'. For instance, a Swede like me would
+        // have G0 be the latin alphabet + some special characters, what we know
+        // and love from ASCII basically. Additionally I would have G1 be the
+        // Swedish character set so that I can use 'å' 'ä' 'ö'.
+
+        // Set G0/G1 to "United States (USASCII)", VT100.
+        if (final_byte == 'B') {
+            // TODO: do something
+            return;
+        }
+
+        // Set G0/G1 to the "Special Character and Line Drawing Set", VT100.
+        if (final_byte == '0') {
+            // TODO: do something
+            return;
+        }
+    }
+
+    printf("\nNF %c %c\n", data->initial_char, final_byte);
     assert(false);
 }
 
