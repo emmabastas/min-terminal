@@ -647,7 +647,8 @@ void action_c0(struct termbuf *tb, char ch) {
 // Invoked by the parser to handle Fe control sequences.
 // So if we got a sequence "ESC<n> where <n> is a byte in the range 48--63
 // then this function is called.
-void action_fe(struct termbuf *tb, char ch) {
+// See: https://en.wikipedia.org/wiki/ANSI_escape_code#Fp_Escape_sequences
+void action_fp(struct termbuf *tb, char ch) {
     assert(48 <= ch && ch <= 63);
 
     // Save cursor
@@ -1450,7 +1451,7 @@ action_noop                = "action_noop"
 action_fail                = "action_fail"
 action_print               = "action_print"
 action_c0                  = "action_c0"
-action_fe                  = "action_fe"
+action_fp                  = "action_fp"
 action_utf8_chomp_start    = "action_utf8_chomp_start"
 action_utf8_chomp_continue = "action_utf8_chomp_continue"
 action_utf8_chomp_end      = "action_utf8_chomp_end"
@@ -1548,9 +1549,9 @@ table = [
   # P_STATE_ESC #
   ###############
   # Got some follow-up byte we we're not expecting
-  [ P_STATE_ESC, r(0, 37),  P_STATE_GROUND, action_fail                      ],
-  # Got a so called "Fe" escape sequence
-  [ P_STATE_ESC, r(38, 63),  P_STATE_GROUND, action_fe,                       ],
+  [ P_STATE_ESC, r(0, 47),  P_STATE_GROUND, action_fail                       ],
+  # Got a so called "Fp" escape sequence
+  [ P_STATE_ESC, r(48, 63),  P_STATE_GROUND, action_fp                        ],
   # Got some follow-up byte we we're not expecting
   [ P_STATE_ESC, r(64, 90),  P_STATE_GROUND, action_fail                      ],
   # Got '['. "ESC[" is a "control sequence introducer" (CSI). Basically we have
@@ -3770,57 +3771,57 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fe, },
+      .action = &action_fp, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
