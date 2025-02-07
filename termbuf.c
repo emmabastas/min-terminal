@@ -1112,6 +1112,23 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         assert(false);
     }
 
+    // CSI Ps M, DL, Delete line.
+    // https://vt100.net/docs/vt510-rm/DL.html
+    if (ch == 'M') {
+        assert(len <= 1);
+        if (len == 0) { p1 = 1; }
+
+        // TODO: handle
+        assert(tb->row + p1 < tb->nrows);
+
+        struct pair_s dest  = pair(tb->row, 1);
+        struct pair_s src   = pair(tb->row + p1, 1);
+        struct pair_s count = pair(p1, tb->ncols);
+        termbuf_memmove(tb, dest, src, count);
+        termbuf_memzero(tb, src, count);
+        return;
+    }
+
     // ESC[<n>d Line Position Absolute (VPA)
     // See: https://vt100.net/docs/vt510-rm/VPA.html
     if (ch == 'd') {
