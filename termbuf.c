@@ -799,11 +799,18 @@ void action_fp(struct termbuf *tb, char ch) {
     // Application keypad (DECKPAM)
     // https://vt100.net/docs/vt510-rm/DECKPAM.html
     if (ch == '=') {
-        // I'm pretty sure this is a no-op for us
+        // I'm pretty sure this is a no-op for us.
         return;
     }
 
-    printf("\naction_fp, unhandeled parameter %d / %c\n", ch, ch);
+    // Normal keypad (DECKPNM), VT100
+    // https://vt100.net/docs/vt510-rm/DECKPNM.html
+    if (ch == '>') {
+        // I'm pretty sure this is a no-op for us.
+        return;
+    }
+
+    printf("\naction_fp, unhandeled parameter %d / '%c'\n", ch, ch);
     assert(false);
 }
 
