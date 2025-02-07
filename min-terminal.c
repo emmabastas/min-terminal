@@ -75,7 +75,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -100,6 +99,8 @@
 #include "./ringbuf.h"
 #include "./termbuf.h"
 #include "./util.h"
+
+void handle_x11_event(XEvent event);
 
 #define RINGBUF_CAPACITY 1024
 
@@ -156,7 +157,10 @@ void render() {
   TODO: Write about the event loop.
  */
 void event_loop() {
-    XSelectInput(display, window, KeyPressMask|FocusChangeMask); // override prev
+    // Select which X11 events we're interested in.
+    // https://tronche.com/gui/x/xlib/events/processing-overview.html
+    XSelectInput(display, window,
+                 KeyPressMask | FocusChangeMask | VisibilityChangeMask);
 
     render();
 
@@ -174,6 +178,13 @@ void event_loop() {
             // `man 2 wait`
             printf("Child process has terminated.\n");
             while(true) { usleep(1000); }
+        }
+
+        // Check if an X11 event has occured
+        if (XPending(display) > 0) {
+            XEvent event;
+            XNextEvent(display, &event);
+            handle_x11_event(event);
         }
 
         // Check if the shell has given us any output to parse/display, and if
@@ -210,33 +221,15 @@ void event_loop() {
 }
 
 
-void *event_loop_x11_event(void *arguments) {
-    assert(arguments == NULL);
-
-    // NOTES ON THREAD SAFETY
-    // * `fprintf` on POSIX fprintf appears to be thread safe in the sense that
-    //    two threads in the same process can use fprintf in the same file
-    //    without the outputs getting interleaved. However, if I do multiple
-    //    printfps's then they could get interleaved, so that's something I
-    //    should fix in this function.
-    //    https://stackoverflow.com/a/64485222
-    // *  `write` I use `write` once to write to `primary_pty_fd`, i.e. send
-    //    data to the shell process. This can occur simultaneously as the main
-    //    thread does a `read(primary_pty_fd, _, _);` I honestly don't konw if
-    //    I'm in trouble if these happen at the same time..
-
- start_over:
-
-    XNextEvent(display, &event);
-
+void handle_x11_event(XEvent event) {
     if (event.type == FocusIn) {
         printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     if (event.type == FocusOut) {
         printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     if (event.type == KeyPress) {
@@ -255,7 +248,7 @@ void *event_loop_x11_event(void *arguments) {
 
         // Nothing really happened, ignore.
         if (status == XLookupNone) {
-            goto start_over;
+            return;
         }
 
         // `buf` was too small, panic.
@@ -273,7 +266,7 @@ void *event_loop_x11_event(void *arguments) {
 
         // We didn't write anything to `buf`, ignore.
         if (len == 0) {
-            goto start_over;
+            return;
         }
 
         printf("\n\x1B[36m> Got key '");
@@ -283,48 +276,57 @@ void *event_loop_x11_event(void *arguments) {
         if (did_write == -1) {
             assert(false);
         }
-        goto start_over;
+        return;
     }
 
     if (event.type == KeyRelease) {
         printf("\n\x1B[36m> KeyRelease event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     // Got a message from a client who sent it with `XSendEvent`
     // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
     if (event.type == ClientMessage) {
         printf("\n\x1B[36m> ClientMessage event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     // Window state changed
     // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
     if (event.type == ConfigureNotify) {
         printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     // https://tronche.com/gui/x/xlib/events/window-state-change/map.html
     // TODO: What does this indicate?
     if (event.type == MapNotify) {
         printf("\n\x1B[36m> MapNotify event\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     // https://tronche.com/gui/x/xlib/events/window-state-change/visibility.html
-    // TODO: Keep track of when window is visible and not to avoid
-    // unecessary graphics operations.
+    // TODO: Keep track of when window is visible and not to avoid unecessary
+    // graphics operations.
+    //
+    // I'm interested in this event because whenver the window is moved around
+    // it needs to be re-rendered. I'm not sure if the VisibilityNotify or
+    // Expose is best for this. It seams st does Exposure. My limited tests
+    // showed that re-rendering worked with either of the events.
     if (event.type == VisibilityNotify) {
-        printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
-        goto start_over;
-    }
+        // The field of interest is `event.state` which is one of:
+        // * VisibilityUnobscured
+        // * VisibilityPartiallyObscured
+        // * VisibilityFullyObscured
 
-    // https://tronche.com/gui/x/xlib/events/exposure/expose.html
-    // TODO: What does this indicate?
-    if (event.type == Expose) {
-        printf("\n\x1B[36m> Expose event\x1B[0m\n");
-        goto start_over;
+        printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
+
+        if (event.xvisibility.state == VisibilityUnobscured
+            | event.xvisibility.state == VisibilityPartiallyObscured) {
+            render();
+        }
+
+        return;
     }
 
     // We have a new parent window.
@@ -332,7 +334,7 @@ void *event_loop_x11_event(void *arguments) {
     // TODO: Should I do the resizing here?
     if (event.type == ReparentNotify) {
         printf("\n\x1B[36m> ReparentNotify\x1B[0m\n");
-        goto start_over;
+        return;
     }
 
     // We missed some event, error
@@ -426,11 +428,8 @@ int main(int argc, char **argv) {
     win_attributes.override_redirect = True;
     win_attributes.background_pixel = 0x505050;
     win_attributes.colormap = colormap;
-    win_attributes.event_mask =
-        ExposureMask
-        | KeyPressMask
-        | VisibilityChangeMask
-        | StructureNotifyMask;
+    win_attributes.event_mask = NoEventMask,  // `event_loop` will specify an
+                                              // event mask.
     window = XCreateWindow(
         display,             // display
         root,                // root
@@ -709,15 +708,6 @@ int main(int argc, char **argv) {
     termbuf_initialize(nrows, ncols, primary_pty_fd, &tb);
 
     run_all_tests();
-
-    pthread_t thread_x11_event;
-    ret = pthread_create(&thread_x11_event,
-                         NULL,
-                         event_loop_x11_event,
-                         NULL);
-    if (ret != 0) {
-        assert(false);
-    }
 
     event_loop();
 
