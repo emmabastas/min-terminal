@@ -316,6 +316,129 @@ const uint8_t eight_bit_colors[256 * 3] = {
 
 
 
+//////////////////////
+// UTILITY FUNCTION //
+//////////////////////
+
+
+
+/*
+  What follows here are utility functions for working with the buffer of
+  `termbuf_char`'s. In memory this is just one contigous block of bytes, but
+  logically it's a rectangle of height `nrows` and width `ncols`. Many of the
+  ANSI escape sequences pertain to manipulating the contents of this rectangle,
+  and so we find a need for these utility functions.
+ */
+
+
+/*
+  This is just a tuple. It is used to represent a position, a row-collumn (where
+  the first row and column have numerical value 1) pair, or a height-width pair.
+ */
+struct pair_s {
+    int y;
+    int x;
+};
+
+struct pair_s pair(int y, int x) {
+    return (struct pair_s) { .y = y, .x = x, };
+}
+
+/*
+  Given a row-col pair and a height-width pair, check that the rectangle they
+  define is contained within the termbuf_char rectange.
+ */
+void assert_in_bounds(struct termbuf *tb, struct pair_s xy, struct pair_s wh) {
+    assert(1 <= xy.x && xy.x <= tb->ncols);
+    assert(1 <= xy.y && xy.y <= tb->nrows);
+    assert(0 <= wh.x && xy.x - 1 + wh.x <= tb->ncols);
+    assert(0 <= wh.y && xy.y - 1 + wh.y <= tb->nrows);
+}
+
+/*
+  Goven a row-col pair, calculate what inded into memory the one-dimenional
+  termbuf_char buffer it corresponds to.
+ */
+int pair_to_offset(struct termbuf *tb,
+                   struct pair_s p) {
+    return (p.y - 1) * tb->ncols + p.x - 1;
+}
+
+/*
+  Given a row-col pair `dest` and a height-width pair `count`, clear out all the
+  cells in that rectangle by setting the termbuf_char's `flag` variable to
+  `FLAG_LENGTH_0`.
+ */
+void termbuf_memzero(struct termbuf *tb,
+                    struct pair_s dest,
+                    struct pair_s count) {
+    assert_in_bounds(tb, dest, count);
+
+    for (int row = dest.y; row < dest.y + count.y; row ++) {
+        for (int col = dest.x ; col < dest.x + count.x; col++) {
+
+            // This makes the terminal display the memzero'ed area in read, good
+            // for debugging.
+            // tb->buf[pair_to_offset(tb, pair(row, col))] =
+            //     (struct termbuf_char) {
+            //     .flags = FLAG_LENGTH_1,
+            //     .utf8_char = { ' ', 0, 0, 0 },
+            //     .bg_color_r = 255,
+            // };
+
+            tb->buf[(row - 1) * tb->ncols + col - 1].flags = FLAG_LENGTH_0;
+        }
+    }
+}
+
+/*
+  A function analogous to `memmove`, but operating on the termbuf_char
+  rectangle. Given a row-col pair `dest`, a row-col pair `src`, and a
+  height-width pair `count`, copy the contents of the rectangle defined by
+  `src` and `count` into the rectangle defined by `dest` and `count`.
+ */
+void termbuf_memmove(struct termbuf *tb,
+                     struct pair_s dest,
+                     struct pair_s src,
+                     struct pair_s count) {
+    assert_in_bounds(tb, src, count);
+    assert_in_bounds(tb, dest, count);
+
+    // TODO: We don't want to dynamically allocate memory if we can help it, so
+    //       when we've implemented a scrollback (ring) buffer we can use part
+    //       of it as a temporary memory block.
+    struct termbuf_char *temp = malloc(count.x * count.y
+                                       * sizeof(struct termbuf_char));
+
+    // Write `src` into `temp`.
+    struct termbuf_char *p = temp;
+    for (int row = src.y; row < src.y + count.y; row ++) {
+        for (int col = src.x ; col < src.x + count.x; col++) {
+            *p = tb->buf[pair_to_offset(tb, pair(row, col))];
+            p++;
+        }
+    }
+
+    // Write `temp` into `dest`
+    p = temp;
+    for (int row = dest.y; row < dest.y + count.y; row ++) {
+        for (int col = dest.x ; col < dest.x + count.x; col++) {
+            tb->buf[pair_to_offset(tb, pair(row, col))] = *p;
+            p++;
+        }
+    }
+
+    free(temp);
+}
+
+
+
+//////////////////
+// REST OF CODE //
+//////////////////
+
+
+
 void termbuf_initialize(int nrows,
                         int ncols,
                         int pty_fd,
