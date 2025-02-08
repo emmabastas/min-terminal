@@ -462,11 +462,11 @@ void handle_x11_keypress(XKeyPressedEvent event) {
                     continue;
                 }
 
-                if (tb.flags & FLAG_KEYPAD_APPLICATION_MODE != 0
+                if (tb.flags & FLAG_APPLICATION_KEYPAD != 0
                     && kp.appkey < 0) {
                     continue;
                 }
-                if (tb.flags & FLAG_KEYPAD_APPLICATION_MODE == 0
+                if (tb.flags & FLAG_APPLICATION_KEYPAD == 0
                     && kp.appkey > 0) {
                     continue;
                 }
@@ -474,11 +474,11 @@ void handle_x11_keypress(XKeyPressedEvent event) {
                 // if (IS_SET(MODE_NUMLOCK) && kp->appkey == 2)
                 //     continue;
 
-                if (tb.flags & FLAG_CURSOR_KEYS_MODE != 0
+                if (tb.flags & FLAG_APPLICATION_CURSOR != 0
                     && kp.appcursor < 0) {
                     continue;
                 }
-                if (tb.flags & FLAG_CURSOR_KEYS_MODE == 0
+                if (tb.flags & FLAG_APPLICATION_CURSOR == 0
                     && kp.appcursor > 0) {
                     continue;
                 }

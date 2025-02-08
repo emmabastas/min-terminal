@@ -450,7 +450,7 @@ void termbuf_initialize(int nrows,
     tb_ret->ncols = ncols;
     tb_ret->row = 1;
     tb_ret->col = 1;
-    tb_ret->flags = FLAG_LENGTH_0 | FLAG_KEYPAD_APPLICATION_MODE;
+    tb_ret->flags = FLAG_LENGTH_0 | FLAG_APPLICATION_KEYPAD;
     tb_ret->fg_color_r = 255;
     tb_ret->fg_color_g = 255;
     tb_ret->fg_color_b = 255;
@@ -783,14 +783,14 @@ void action_fp(struct termbuf *tb, char ch) {
     // Application keypad (DECKPAM)
     // https://vt100.net/docs/vt510-rm/DECKPAM.html
     if (ch == '=') {
-        tb->flags |= FLAG_KEYPAD_APPLICATION_MODE;
+        tb->flags |= FLAG_APPLICATION_KEYPAD;
         return;
     }
 
     // Normal keypad (DECKPNM), VT100
     // https://vt100.net/docs/vt510-rm/DECKPNM.html
     if (ch == '>') {
-        tb->flags &= ~FLAG_KEYPAD_APPLICATION_MODE;
+        tb->flags &= ~FLAG_APPLICATION_KEYPAD;
         return;
     }
 
@@ -1618,7 +1618,7 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
     switch(data->params[0]) {
     case 1:
         // ESC[?1h Set Cursor key mode (DECCKM)
-        flag = FLAG_CURSOR_KEYS_MODE;
+        flag = FLAG_APPLICATION_CURSOR;
         break;
     case 7:
         // ESC[?1h Set autowrap mode (DECAWM)

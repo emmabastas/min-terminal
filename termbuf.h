@@ -43,11 +43,16 @@
 // when arrow keys are pressed (TODO: In what way), the sequences to set and
 // unset this flag is ESC[?1h and ESC[?1l
 // See: https://vt100.net/docs/vt510-rm/DECCKM.html
-#define FLAG_CURSOR_KEYS_MODE 4096      // 0b0001000000000000
-// This flag also influences what/how sequences for certain keys are sent to the
-// shell??
+
+// It is a little unclear to me what this does but it influences what/how the
+// terminal sends special escape sequences to the shell when special keys (like
+// Ctrl, Shift, Left arrow, etc) are pressed
+// This flag commes into play inside  `handle_x11_keypress` in `min-terminal.c`.
+// See: https://vt100.net/docs/vt510-rm/DECCKM.html
+#define FLAG_APPLICATION_CURSOR 4096  // 0b0001000000000000
+// See `FLAG_APPLICATION_CURSOR` for some comments.
 // See: https://vt100.net/docs/vt510-rm/DECKPAM.html
-#define FLAG_KEYPAD_APPLICATION_MODE 8192  // 0b0010000000000000
+#define FLAG_APPLICATION_KEYPAD 8192  // 0b0010000000000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.
