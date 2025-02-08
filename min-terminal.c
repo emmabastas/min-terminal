@@ -222,13 +222,33 @@ void event_loop() {
 
 
 void handle_x11_event(XEvent event) {
+    static bool window_focused = true;
+
+    // TODO: There are still instances where the terminal ends up sending
+    //       FocusOut's that are immediately followed by FocusIn's, for instance
+    //       when resizing or moving the window in i3. Can this be fixed or
+    //       should it just be accepted?
     if (event.type == FocusIn) {
         printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
+        // Let the shell know that we gained focus
+        // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-FocusIn_FocusOut
+        if (!window_focused) {
+            printf("\x1B[36mTransmitting \"ESC[I\" to shell.\x1B[0m\n");
+            int did_write = write(primary_pty_fd, "\x1B[I", 3);
+            assert(did_write != -1);
+        }
+        window_focused = true;
         return;
     }
 
     if (event.type == FocusOut) {
         printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
+        if (window_focused) {
+            printf("\x1B[36mTransmitting \"ESC[O\" to shell.\x1B[0m\n");
+            int did_write = write(primary_pty_fd, "\x1B[O", 3);
+            assert(did_write != -1);
+        }
+        window_focused = false;
         return;
     }
 
