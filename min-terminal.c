@@ -84,6 +84,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <libgen.h>
+#include <limits.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
@@ -101,6 +102,7 @@
 #include "./util.h"
 
 void handle_x11_event(XEvent event);
+void handle_x11_keypress(XKeyPressedEvent event);
 
 #define RINGBUF_CAPACITY 1024
 
@@ -253,49 +255,7 @@ void handle_x11_event(XEvent event) {
     }
 
     if (event.type == KeyPress) {
-        XKeyPressedEvent key_event = event.xkey;
-
-        char buf[5];
-        KeySym keysym = NoSymbol;
-        Status status;
-
-        int len = Xutf8LookupString(input_context,
-                                    &key_event,
-                                    buf,
-                                    4,
-                                    &keysym,
-                                    &status);
-
-        // Nothing really happened, ignore.
-        if (status == XLookupNone) {
-            return;
-        }
-
-        // `buf` was too small, panic.
-        if (status == XBufferOverflow) {
-            assert(false);
-        }
-
-        // At this point status must be one of XLookupKeySym, XLookupChars or
-        // XLookupBoth
-        if (status != XLookupKeySym
-            && status != XLookupChars
-            && status != XLookupBoth) {
-            assert(false);
-        }
-
-        // We didn't write anything to `buf`, ignore.
-        if (len == 0) {
-            return;
-        }
-
-        printf("\n\x1B[36m> Got key '");
-        print_escape_non_printable(buf, len);
-        printf("' from x11.\x1B[0m\n");
-        int did_write = write(primary_pty_fd, buf, len);
-        if (did_write == -1) {
-            assert(false);
-        }
+        handle_x11_keypress(event.xkey);
         return;
     }
 
@@ -362,6 +322,178 @@ void handle_x11_event(XEvent event) {
            event.type,
            util_xevent_to_string(event.type));
     assert(false);
+}
+
+struct key_s {
+    KeySym k;
+    uint mask;
+    char *s;
+    /* three-valued logic variables: 0 indifferent, 1 on, -1 off */
+    signed char appkey;    /* application keypad */
+    signed char appcursor; /* application cursor */
+};
+
+
+#define XK_ANY_MOD    UINT_MAX
+#define XK_NO_MOD     0
+#define XK_SWITCH_MOD (1<<13|1<<14)
+
+/*
+  Two masks:
+  1) KEYBOARD STATE MASK: Whenever a key is pressed a number of modifier keys,
+     like Shift and Ctrl may be pressed at the same time. These modifier keys
+     are recored in a `XKeyPressedEvent`'s `state` field.
+  2) TERMINAL FLAGS MASK: This is just a mask over the `termbuf`'s `flags`
+     field.
+ */
+
+// const static uint   ANY_MOD  = UINT_MAX;
+// const static uint16 ANY_FLAG = UINT16_MAX;
+// const static uint16 NO_
+
+#define N_SPECIAL_KEYS 80
+static struct key_s special_keys_map[N_SPECIAL_KEYS] = {
+    /* keysym           mask            string      appkey appcursor */
+    { XK_KP_Up,         XK_ANY_MOD,     "\033Ox",       +1,    0},
+    { XK_KP_Up,         XK_ANY_MOD,     "\033[A",        0,   -1},
+    { XK_KP_Up,         XK_ANY_MOD,     "\033OA",        0,   +1},
+    { XK_KP_Down,       XK_ANY_MOD,     "\033Or",       +1,    0},
+    { XK_KP_Down,       XK_ANY_MOD,     "\033[B",        0,   -1},
+    { XK_KP_Down,       XK_ANY_MOD,     "\033OB",        0,   +1},
+    { XK_KP_Left,       XK_ANY_MOD,     "\033Ot",       +1,    0},
+    { XK_KP_Left,       XK_ANY_MOD,     "\033[D",        0,   -1},
+    { XK_KP_Left,       XK_ANY_MOD,     "\033OD",        0,   +1},
+    { XK_KP_Right,      XK_ANY_MOD,     "\033Ov",       +1,    0},
+    { XK_KP_Right,      XK_ANY_MOD,     "\033[C",        0,   -1},
+    { XK_KP_Right,      XK_ANY_MOD,     "\033OC",        0,   +1},
+    { XK_Up,            ShiftMask,      "\033[1;2A",     0,    0},
+    { XK_Up,            Mod1Mask,       "\033[1;3A",     0,    0},
+    { XK_Up,         ShiftMask|Mod1Mask,"\033[1;4A",     0,    0},
+    { XK_Up,            ControlMask,    "\033[1;5A",     0,    0},
+    { XK_Up,      ShiftMask|ControlMask,"\033[1;6A",     0,    0},
+    { XK_Up,       ControlMask|Mod1Mask,"\033[1;7A",     0,    0},
+    { XK_Up,ShiftMask|ControlMask|Mod1Mask,"\033[1;8A",  0,    0},
+    { XK_Up,            XK_ANY_MOD,     "\033[A",        0,   -1},
+    { XK_Up,            XK_ANY_MOD,     "\033OA",        0,   +1},
+    { XK_Down,          ShiftMask,      "\033[1;2B",     0,    0},
+    { XK_Down,          Mod1Mask,       "\033[1;3B",     0,    0},
+    { XK_Down,       ShiftMask|Mod1Mask,"\033[1;4B",     0,    0},
+    { XK_Down,          ControlMask,    "\033[1;5B",     0,    0},
+    { XK_Down,    ShiftMask|ControlMask,"\033[1;6B",     0,    0},
+    { XK_Down,     ControlMask|Mod1Mask,"\033[1;7B",     0,    0},
+    { XK_Down,ShiftMask|ControlMask|Mod1Mask,"\033[1;8B",0,    0},
+    { XK_Down,          XK_ANY_MOD,     "\033[B",        0,   -1},
+    { XK_Down,          XK_ANY_MOD,     "\033OB",        0,   +1},
+    { XK_Left,          ShiftMask,      "\033[1;2D",     0,    0},
+    { XK_Left,          Mod1Mask,       "\033[1;3D",     0,    0},
+    { XK_Left,       ShiftMask|Mod1Mask,"\033[1;4D",     0,    0},
+    { XK_Left,          ControlMask,    "\033[1;5D",     0,    0},
+    { XK_Left,    ShiftMask|ControlMask,"\033[1;6D",     0,    0},
+    { XK_Left,     ControlMask|Mod1Mask,"\033[1;7D",     0,    0},
+    { XK_Left,ShiftMask|ControlMask|Mod1Mask,"\033[1;8D",0,    0},
+    { XK_Left,          XK_ANY_MOD,     "\033[D",        0,   -1},
+    { XK_Left,          XK_ANY_MOD,     "\033OD",        0,   +1},
+    { XK_Right,         ShiftMask,      "\033[1;2C",     0,    0},
+    { XK_Right,         Mod1Mask,       "\033[1;3C",     0,    0},
+    { XK_Right,      ShiftMask|Mod1Mask,"\033[1;4C",     0,    0},
+    { XK_Right,         ControlMask,    "\033[1;5C",     0,    0},
+    { XK_Right,   ShiftMask|ControlMask,"\033[1;6C",     0,    0},
+    { XK_Right,    ControlMask|Mod1Mask,"\033[1;7C",     0,    0},
+    { XK_Right,ShiftMask|ControlMask|Mod1Mask,"\033[1;8C",0,   0},
+    { XK_Right,         XK_ANY_MOD,     "\033[C",        0,   -1},
+    { XK_Right,         XK_ANY_MOD,     "\033OC",        0,   +1},
+};
+
+void handle_x11_keypress(XKeyPressedEvent event) {
+        char buf[5];
+        KeySym keysym = NoSymbol;
+        Status status;
+
+        int len = Xutf8LookupString(input_context,
+                                    &event,
+                                    buf,
+                                    4,
+                                    &keysym,
+                                    &status);
+
+        // Nothing really happened, ignore.
+        if (status == XLookupNone) {
+            return;
+        }
+
+        // `buf` was too small, panic.
+        if (status == XBufferOverflow) {
+            assert(false);
+        }
+
+        // At this point status must be one of XLookupKeySym, XLookupChars or
+        // XLookupBoth
+        assert(status == XLookupKeySym
+               || status == XLookupChars
+               || status == XLookupBoth);
+
+        // Something was written to buffer
+        if (status == XLookupChars || status == XLookupBoth) {
+            printf("\n\x1B[36m> Got key '");
+            print_escape_non_printable(buf, len);
+            printf("\x1B[36m' from x11.\x1B[0m\n");
+            int did_write = write(primary_pty_fd, buf, len);
+            if (did_write == -1) {
+                assert(false);
+            }
+        }
+
+        // We got a KeySym only. If we got a KeySym and chars we're written to
+        // the buffer we're only interested in the chars.
+        //
+        // This logic is pretty much copied from simple terminal.
+        if (status == XLookupKeySym) {
+            for (int i = 0; i < N_SPECIAL_KEYS; i++) {
+                struct key_s kp = special_keys_map[i];
+
+                if (kp.k != keysym) {
+                    continue;
+                }
+
+                uint ignoremod = Mod2Mask|XK_SWITCH_MOD;
+                bool match = kp.mask == XK_ANY_MOD
+                    || kp.mask == (event.state & ~ignoremod);
+                if (!match) {
+                    continue;
+                }
+
+                if (tb.flags & FLAG_KEYPAD_APPLICATION_MODE != 0
+                    && kp.appkey < 0) {
+                    continue;
+                }
+                if (tb.flags & FLAG_KEYPAD_APPLICATION_MODE == 0
+                    && kp.appkey > 0) {
+                    continue;
+                }
+
+                // if (IS_SET(MODE_NUMLOCK) && kp->appkey == 2)
+                //     continue;
+
+                if (tb.flags & FLAG_CURSOR_KEYS_MODE != 0
+                    && kp.appcursor < 0) {
+                    continue;
+                }
+                if (tb.flags & FLAG_CURSOR_KEYS_MODE == 0
+                    && kp.appcursor > 0) {
+                    continue;
+                }
+
+                printf("\n\x1B[36m> Transmitting special key sequence '");
+                print_escape_non_printable(kp.s, strlen(kp.s));
+                printf("\x1B[36m'\x1B[0m\n");
+                int did_write = write(primary_pty_fd, kp.s, strlen(kp.s));
+                if (did_write == -1) {
+                    assert(false);
+                }
+
+                return;
+            }
+       }
 }
 
 int main(int argc, char **argv) {
