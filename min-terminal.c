@@ -106,20 +106,20 @@ void handle_x11_keypress(XKeyPressedEvent event);
 
 #define RINGBUF_CAPACITY 1024
 
-Display *display;
-int window;
-int screen;
-GLXContext glx_context;
+static Display *display;
+static int window;
+static int screen;
+static GLXContext glx_context;
 
-struct termbuf tb;
+static struct termbuf tb;
 
-XEvent event;
+static XEvent event;
 
-XIC input_context;
+static XIC input_context;
 
-int primary_pty_fd;    // Used by the terminal process.
-int secondary_pty_fd;  // Used by the shell process.
-pid_t shell_pid;       // The PID of the shell process.
+static int primary_pty_fd;    // Used by the terminal process.
+static int secondary_pty_fd;  // Used by the shell process.
+static pid_t shell_pid;       // The PID of the shell process.
 
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
