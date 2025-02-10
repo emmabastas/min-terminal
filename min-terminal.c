@@ -122,7 +122,8 @@ static pid_t shell_pid;       // The PID of the shell process.
 #endif
 
 void run_all_tests();
-void handle_x11_event(XEvent event);
+void handle_primary_pty_input();
+void handle_x11_event();
 void render();
 void gl_debug_msg_callback(GLenum source,
                            GLenum type,
@@ -154,6 +155,8 @@ void render() {
   TODO: Write about the event loop.
  */
 void event_loop() {
+    // TODO: Better to do this in `win_attributes.event_mask`? Ideally I'd want
+    //       the events mask to be tightly coupled with `handle_x11_events`..
     // Select which X11 events we're interested in.
     // https://tronche.com/gui/x/xlib/events/processing-overview.html
     XSelectInput(display, window,
@@ -161,8 +164,27 @@ void event_loop() {
 
     render();
 
+    #define N_EVENT_TYPES 2
+
+    struct pollfd pollfds[N_EVENT_TYPES] = {
+        {
+            .fd = primary_pty_fd,
+            .events = POLLIN,
+        },
+        {
+            .fd = ConnectionNumber(display),
+            .events = POLLIN,
+        }
+    };
+
+    void (*handlers[N_EVENT_TYPES]) (void) = {
+        handle_primary_pty_input,
+        handle_x11_event,
+    };
+
     while(true) {
         // Check if the shell process has terminated.
+        // TODO: Can I move this into my main eventloop<>handler logic?
         int shell_status;
         int ret = waitpid(shell_pid, &shell_status, WNOHANG);
         if (ret == -1) {  // Some error occured.
@@ -177,49 +199,50 @@ void event_loop() {
             while(true) { usleep(1000); }
         }
 
-        // Check if an X11 event has occured
-        if (XPending(display) > 0) {
-            XEvent event;
-            XNextEvent(display, &event);
-            handle_x11_event(event);
-        }
+        // No performance benefits to to using `epoll` instead.
+        ret = poll(pollfds, N_EVENT_TYPES, -1);  // -1 means infinite timeout.
+        assert(ret != -1);  // means an error occured.
+        assert(ret != 0);  // means we timed out which we shouldn't have done.
 
-        // Check if the shell has given us any output to parse/display, and if
-        // so handle it.
-        struct pollfd pfd = {
-            .fd = primary_pty_fd,
-            .events = POLLIN,
-            .revents = POLLIN,
-        };
-        ret = poll(&pfd, 1, 0);
-        if (ret == -1) {  // means an error occured.
-            assert(false);
-        }
-        if (ret > 0) {  // means we didn't timeout.
-            #define BUFSIZE 4096
-            uint8_t buf[BUFSIZE];
-            size_t did_read = read(primary_pty_fd, buf, BUFSIZE);
-            if (did_read == 0) {  // the pty is closed!?
-                assert(false);
+        for (int i = 0; i < N_EVENT_TYPES; i++) {
+            assert((pollfds[i].revents & POLLERR)  == 0);
+            assert((pollfds[i].revents & POLLHUP)  == 0);
+            assert((pollfds[i].revents & POLLNVAL) == 0);
+            if ((pollfds[i].revents & POLLIN) == 0) {
+                continue;
             }
-
-            if (did_read == BUFSIZE) {
-                // TODO: Maybe we should output info/warning that the buffer
-                //       wasn't big enough to read all available data and that
-                //       maybe we should consider making the buffer larger?
-                assert(false);
-            }
-
-            termbuf_parse(&tb, buf, did_read);
-            render();
+            handlers[i]();
         }
-        usleep(100);
     }
 }
 
+void handle_primary_pty_input() {
+    #define BUFSIZE 16384
+    uint8_t buf[BUFSIZE];
+    size_t did_read = read(primary_pty_fd, buf, BUFSIZE);
+    if (did_read == 0) {  // the pty is closed!?
+        assert(false);
+    }
 
-void handle_x11_event(XEvent event) {
+    if (did_read == BUFSIZE) {
+        // TODO: Maybe we should output info/warning that the buffer
+        //       wasn't big enough to read all available data and that
+        //       maybe we should consider making the buffer larger?
+        assert(false);
+    }
+
+    termbuf_parse(&tb, buf, did_read);
+    render();
+
+}
+
+void handle_x11_event() {
+    assert(XPending(display) > 0);
+
     static bool window_focused = true;
+
+    XEvent event;
+    XNextEvent(display, &event);
 
     // TODO: There are still instances where the terminal ends up sending
     //       FocusOut's that are immediately followed by FocusIn's, for instance
