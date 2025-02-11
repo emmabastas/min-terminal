@@ -108,6 +108,12 @@ static Display *display;
 static int window;
 static int screen;
 static GLXContext glx_context;
+static int window_height;
+static int window_width;
+static const int CELL_HEIGHT = 21;
+static const int BORDERPX = 0;
+static const int INITIAL_SCREEN_WIDTH = 900;
+static const int INITIAL_SCREEN_HEIGHT = 1000;
 
 static struct termbuf tb;
 
@@ -160,7 +166,10 @@ void event_loop() {
     // Select which X11 events we're interested in.
     // https://tronche.com/gui/x/xlib/events/processing-overview.html
     XSelectInput(display, window,
-                 KeyPressMask | FocusChangeMask | VisibilityChangeMask);
+                 KeyPressMask
+                 | FocusChangeMask
+                 | VisibilityChangeMask
+                 | StructureNotifyMask);
 
     render();
 
@@ -297,6 +306,37 @@ void handle_x11_event() {
     // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
     if (event.type == ConfigureNotify) {
         printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
+
+        XConfigureEvent xce = event.xconfigure;
+        if (xce.width == window_height && xce.height == window_width) {
+            return;
+        }
+
+        window_width = xce.width;
+        window_height = xce.height;
+        // TODO
+
+        // The same math that st uses
+        int nrows, ncols;
+        rendering_calculate_sizes(window_height - 2 * BORDERPX,
+                                  window_width - 2 * BORDERPX,
+                                  CELL_HEIGHT,
+                                  &ncols,
+                                  &nrows);
+
+        // TODO: resize termbuf
+
+        struct winsize w = {
+            .ws_row = nrows,
+            .ws_col = ncols,
+        };
+
+        int ret = ioctl(primary_pty_fd, TIOCSWINSZ, &w);
+        if (ret == -1) {
+            assert(false);
+        }
+
+
         return;
     }
 
@@ -418,9 +458,6 @@ int main(int argc, char **argv) {
                                         visual_info->visual,
                                         AllocNone);
 
-    const int SCREEN_WIDTH = 800;
-    const int SCREEN_HEIGHT = 400;
-
     // If I want to control window placement and not let the WM decide I should
     // add CWOverrideRedirect flag to the set of flags when calling
     // XCreateWindow.
@@ -433,34 +470,33 @@ int main(int argc, char **argv) {
     win_attributes.event_mask = NoEventMask,  // `event_loop` will specify an
                                               // event mask.
     window = XCreateWindow(
-        display,             // display
-        root,                // root
-        0,                   // x
-        0,                   // y
-        SCREEN_WIDTH,        // width
-        SCREEN_HEIGHT,       // height
-        0,                   // border_width
-        CopyFromParent,      // depth
-        CopyFromParent,      // class
-        visual_info->visual, // visual
+        display,                // display
+        root,                   // root
+        0,                      // x
+        0,                      // y
+        INITIAL_SCREEN_WIDTH,   // width
+        INITIAL_SCREEN_HEIGHT,  // height
+        0,                      // border_width
+        CopyFromParent,         // depth
+        CopyFromParent,         // class
+        visual_info->visual,    // visual
         CWBackPixel | CWEventMask | CWColormap, // valuemask
-        &win_attributes);    // attributes
+        &win_attributes);       // attributes
 
     // Set window attributes
 
     // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-normal-hints.html#XSizeHints
     XSizeHints *size_hints = XAllocSizeHints();
-    const int BORDERPX = 2;
     size_hints->flags = 0;
     size_hints->flags = PSize | PResizeInc | PBaseSize | PMinSize | PWinGravity;
-    size_hints->height = SCREEN_HEIGHT;
-    size_hints->width = SCREEN_WIDTH;
+    size_hints->height = INITIAL_SCREEN_HEIGHT;
+    size_hints->width =  INITIAL_SCREEN_WIDTH;
     size_hints->height_inc = 10;
     size_hints->width_inc = 10;
     size_hints->base_height = 2 * BORDERPX;
     size_hints->base_width = 2 * BORDERPX;
-    size_hints->min_height = SCREEN_HEIGHT + 2 * BORDERPX;
-    size_hints->min_width = SCREEN_WIDTH + 2 * BORDERPX;
+    size_hints->min_height = INITIAL_SCREEN_HEIGHT + 2 * BORDERPX;
+    size_hints->min_width =  INITIAL_SCREEN_WIDTH + 2 * BORDERPX;
     size_hints->win_gravity = SouthEastGravity;
 
     // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-hints.html#XWMHints
@@ -579,7 +615,9 @@ int main(int argc, char **argv) {
 
     int nrows, ncols;
     rendering_initialize(display, window, glx_context);
-    rendering_calculate_sizes(SCREEN_HEIGHT, SCREEN_WIDTH, 21, &nrows, &ncols);
+    rendering_calculate_sizes(INITIAL_SCREEN_HEIGHT,
+                              INITIAL_SCREEN_WIDTH,
+                              CELL_HEIGHT, &nrows, &ncols);
 
     // Make an input context, used later to decode keypresses
 
