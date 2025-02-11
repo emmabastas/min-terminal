@@ -183,8 +183,12 @@ void event_loop() {
     };
 
     while(true) {
-        // Check if the shell process has terminated.
-        // TODO: Can I move this into my main eventloop<>handler logic?
+        // Bug: This guard doesn't work since
+        // 69bbd0c151551b52c8884becd1654e4ccc5eda95
+        //
+        // I can make shell status a `poll` -able  file descriptor with
+        // `signalfd`. However, the `primary_pty_fd` will close before I get the
+        // update from the file descriptor.
         int shell_status;
         int ret = waitpid(shell_pid, &shell_status, WNOHANG);
         if (ret == -1) {  // Some error occured.
