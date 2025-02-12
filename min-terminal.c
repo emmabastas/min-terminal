@@ -250,140 +250,142 @@ void handle_primary_pty_input() {
 }
 
 void handle_x11_event() {
-    assert(XPending(display) > 0);
-
     static bool window_focused = true;
-
     XEvent event;
-    XNextEvent(display, &event);
 
-    // TODO: There are still instances where the terminal ends up sending
-    //       FocusOut's that are immediately followed by FocusIn's, for instance
-    //       when resizing or moving the window in i3. Can this be fixed or
-    //       should it just be accepted?
-    if (event.type == FocusIn) {
-        printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
-        // Let the shell know that we gained focus
-        // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-FocusIn_FocusOut
-        if (!window_focused) {
-            printf("\x1B[36mTransmitting \"ESC[I\" to shell.\x1B[0m\n");
-            int did_write = write(primary_pty_fd, "\x1B[I", 3);
-            assert(did_write != -1);
-        }
-        window_focused = true;
-        return;
-    }
+    while(XPending(display) > 0) {
 
-    if (event.type == FocusOut) {
-        printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
-        if (window_focused) {
-            printf("\x1B[36mTransmitting \"ESC[O\" to shell.\x1B[0m\n");
-            int did_write = write(primary_pty_fd, "\x1B[O", 3);
-            assert(did_write != -1);
-        }
-        window_focused = false;
-        return;
-    }
+        XNextEvent(display, &event);
 
-    if (event.type == KeyPress) {
-        handle_x11_keypress(event.xkey);
-        return;
-    }
-
-    if (event.type == KeyRelease) {
-        printf("\n\x1B[36m> KeyRelease event\x1B[0m\n");
-        return;
-    }
-
-    // Got a message from a client who sent it with `XSendEvent`
-    // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
-    if (event.type == ClientMessage) {
-        printf("\n\x1B[36m> ClientMessage event\x1B[0m\n");
-        return;
-    }
-
-    // Window state changed
-    // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
-    if (event.type == ConfigureNotify) {
-        printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
-
-        XConfigureEvent xce = event.xconfigure;
-        if (xce.width == window_height && xce.height == window_width) {
-            return;
+        // TODO: There are still instances where the terminal ends up sending
+        //       FocusOut's that are immediately followed by FocusIn's, for
+        //       instance when resizing or moving the window in i3. Can this be
+        //       fixed or should it just be accepted?
+        if (event.type == FocusIn) {
+            printf("\n\x1B[36m> FocusIn event\x1B[0m\n");
+            // Let the shell know that we gained focus
+            // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-FocusIn_FocusOut
+            if (!window_focused) {
+                printf("\x1B[36mTransmitting \"ESC[I\" to shell.\x1B[0m\n");
+                int did_write = write(primary_pty_fd, "\x1B[I", 3);
+                assert(did_write != -1);
+            }
+            window_focused = true;
+            continue;
         }
 
-        window_width = xce.width;
-        window_height = xce.height;
-        // TODO
-
-        // The same math that st uses
-        int nrows, ncols;
-        rendering_calculate_sizes(window_height - 2 * BORDERPX,
-                                  window_width - 2 * BORDERPX,
-                                  CELL_HEIGHT,
-                                  &ncols,
-                                  &nrows);
-
-        // TODO: resize termbuf
-
-        struct winsize w = {
-            .ws_row = nrows,
-            .ws_col = ncols,
-        };
-
-        int ret = ioctl(primary_pty_fd, TIOCSWINSZ, &w);
-        if (ret == -1) {
-            assert(false);
+        if (event.type == FocusOut) {
+            printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
+            if (window_focused) {
+                printf("\x1B[36mTransmitting \"ESC[O\" to shell.\x1B[0m\n");
+                int did_write = write(primary_pty_fd, "\x1B[O", 3);
+                assert(did_write != -1);
+            }
+            window_focused = false;
+            continue;
         }
 
-
-        return;
-    }
-
-    // https://tronche.com/gui/x/xlib/events/window-state-change/map.html
-    // TODO: What does this indicate?
-    if (event.type == MapNotify) {
-        printf("\n\x1B[36m> MapNotify event\x1B[0m\n");
-        return;
-    }
-
-    // https://tronche.com/gui/x/xlib/events/window-state-change/visibility.html
-    // TODO: Keep track of when window is visible and not to avoid unecessary
-    // graphics operations.
-    //
-    // I'm interested in this event because whenver the window is moved around
-    // it needs to be re-rendered. I'm not sure if the VisibilityNotify or
-    // Expose is best for this. It seams st does Exposure. My limited tests
-    // showed that re-rendering worked with either of the events.
-    if (event.type == VisibilityNotify) {
-        // The field of interest is `event.state` which is one of:
-        // * VisibilityUnobscured
-        // * VisibilityPartiallyObscured
-        // * VisibilityFullyObscured
-
-        printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
-
-        if (event.xvisibility.state == VisibilityUnobscured
-            | event.xvisibility.state == VisibilityPartiallyObscured) {
-            render();
+        if (event.type == KeyPress) {
+            handle_x11_keypress(event.xkey);
+            continue;
         }
 
-        return;
-    }
+        if (event.type == KeyRelease) {
+            printf("\n\x1B[36m> KeyRelease event\x1B[0m\n");
+            continue;
+        }
 
-    // We have a new parent window.
-    // https://tronche.com/gui/x/xlib/events/window-state-change/reparent.html
-    // TODO: Should I do the resizing here?
-    if (event.type == ReparentNotify) {
-        printf("\n\x1B[36m> ReparentNotify\x1B[0m\n");
-        return;
-    }
+        // Got a message from a client who sent it with `XSendEvent`
+        // https://tronche.com/gui/x/xlib/events/client-communication/client-message.html
+        if (event.type == ClientMessage) {
+            printf("\n\x1B[36m> ClientMessage event\x1B[0m\n");
+            continue;
+        }
 
-    // We missed some event, error
-    printf("Unhandeled XEvent %d %s\n",
-           event.type,
-           util_xevent_to_string(event.type));
-    assert(false);
+        // Window state changed
+        // https://tronche.com/gui/x/xlib/events/window-state-change/configure.html
+        if (event.type == ConfigureNotify) {
+            printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
+
+            XConfigureEvent xce = event.xconfigure;
+            if (xce.width == window_height && xce.height == window_width) {
+                continue;
+            }
+
+            window_width = xce.width;
+            window_height = xce.height;
+            // TODO
+
+            // The same math that st uses
+            int nrows, ncols;
+            rendering_calculate_sizes(window_height - 2 * BORDERPX,
+                                      window_width - 2 * BORDERPX,
+                                      CELL_HEIGHT,
+                                      &ncols,
+                                      &nrows);
+
+            // TODO: resize termbuf
+
+            struct winsize w = {
+                .ws_row = nrows,
+                .ws_col = ncols,
+            };
+
+            int ret = ioctl(primary_pty_fd, TIOCSWINSZ, &w);
+            if (ret == -1) {
+                assert(false);
+            }
+
+
+            continue;
+        }
+
+        // https://tronche.com/gui/x/xlib/events/window-state-change/map.html
+        // TODO: What does this indicate?
+        if (event.type == MapNotify) {
+            printf("\n\x1B[36m> MapNotify event\x1B[0m\n");
+            continue;
+        }
+
+        // https://tronche.com/gui/x/xlib/events/window-state-change/visibility.html
+        // TODO: Keep track of when window is visible and not to avoid
+        // unecessary graphics operations.
+        //
+        // I'm interested in this event because whenver the window is moved
+        // around it needs to be re-rendered. I'm not sure if the
+        // VisibilityNotify or Expose is best for this. It seams st does
+        // Exposure. My limited tests showed that re-rendering worked with
+        // either of the events.
+        if (event.type == VisibilityNotify) {
+            // The field of interest is `event.state` which is one of:
+            // * VisibilityUnobscured
+            // * VisibilityPartiallyObscured
+            // * VisibilityFullyObscured
+
+            printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
+
+            if (event.xvisibility.state == VisibilityUnobscured
+                | event.xvisibility.state == VisibilityPartiallyObscured) {
+                render();
+            }
+
+            continue;
+        }
+
+        // We have a new parent window.
+        // https://tronche.com/gui/x/xlib/events/window-state-change/reparent.html
+        // TODO: Should I do the resizing here?
+        if (event.type == ReparentNotify) {
+            printf("\n\x1B[36m> ReparentNotify\x1B[0m\n");
+            continue;
+        }
+
+        // We missed some event, error
+        printf("Unhandeled XEvent %d %s\n",
+               event.type,
+               util_xevent_to_string(event.type));
+        assert(false);
+    }
 }
 
 int main(int argc, char **argv) {
