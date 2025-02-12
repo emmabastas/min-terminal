@@ -230,23 +230,33 @@ void event_loop() {
 }
 
 void handle_primary_pty_input() {
-    #define BUFSIZE 16384
+    #define BUFSIZE 4096
     uint8_t buf[BUFSIZE];
-    size_t did_read = read(primary_pty_fd, buf, BUFSIZE);
-    if (did_read == 0) {  // the pty is closed!?
-        assert(false);
+    size_t did_read;
+    while (true) {
+        did_read = read(primary_pty_fd, buf, BUFSIZE);
+
+        if (did_read == BUFSIZE) {
+            // TODO: Send diagnostics about how often the buffer isn't large
+            //       enough.
+        }
+
+        // Nothing more to read.
+        // This pythonic try-except is also good C as far as I can tell.
+        // We assume that O_NONBLOCK has been set on primary_pty_fd somewhere
+        // arleady.
+        if (did_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            break;
+        }
+
+        if (did_read == -1) {  // Some other error.
+            assert(false);
+        }
+
+        termbuf_parse(&tb, buf, did_read);
     }
 
-    if (did_read == BUFSIZE) {
-        // TODO: Maybe we should output info/warning that the buffer
-        //       wasn't big enough to read all available data and that
-        //       maybe we should consider making the buffer larger?
-        assert(false);
-    }
-
-    termbuf_parse(&tb, buf, did_read);
     render();
-
 }
 
 void handle_x11_event() {
@@ -633,6 +643,8 @@ int main(int argc, char **argv) {
     if (primary_pty_fd == -1) {
         assert(false);
     }
+
+    fcntl(primary_pty_fd, F_SETFL, fcntl(primary_pty_fd, F_GETFL) | O_NONBLOCK);
 
     int ret = grantpt(primary_pty_fd);
     if (ret == -1) {
