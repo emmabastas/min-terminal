@@ -100,6 +100,7 @@
 #include "./ringbuf.h"
 #include "./termbuf.h"
 #include "./keymap.h"
+#include "./diagnostics.h"
 #include "./util.h"
 
 #define RINGBUF_CAPACITY 1024
@@ -762,6 +763,8 @@ int main(int argc, char **argv) {
       NULL);
 
     keymap_initialize(&tb, input_context, primary_pty_fd);
+
+    diagnostics_initialize();
 
     run_all_tests();
 

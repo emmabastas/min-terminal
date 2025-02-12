@@ -8,6 +8,7 @@
 
 #include <X11/Xlib.h>
 
+#include "./diagnostics.h"
 #include "./util.h"
 #include "./CuTest.h"
 
@@ -546,7 +547,8 @@ struct parser_table_entry parser_table[256 * NSTATES];
 
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
     while (len > 0) {
-        print_escape_non_printable((char *) data, 1);
+        diagnostics_type(DIAGNOSTICS_TERM_PARSE_INPUT);
+        diagnostics_write_string_escape_non_printable((char *) data, 1);
 
         size_t index = tb->p_state * 256 + *data;
         struct parser_table_entry entry = parser_table[index];
@@ -554,36 +556,37 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
         entry.action(tb, *data);
 
         if (tb->p_state != entry.new_state) {
+            diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE);
             switch(entry.new_state) {
             case P_STATE_GROUND:
-                printf("\x1B[35m|GROUND|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|GROUND|\x1B[0m", -1);
                 break;
             case P_STATE_CHOMP1:
-                printf("\x1B[35m|CHOMP1|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|CHOMP1|\x1B[0m", -1);
                 break;
             case P_STATE_CHOMP2:
-                printf("\x1B[35m|CHOMP2|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|CHOMP2|\x1B[0m", -1);
                 break;
             case P_STATE_CHOMP3:
-                printf("\x1B[35m|CHOMP3|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|CHOMP3|\x1B[0m", -1);
                 break;
             case P_STATE_ESC:
-                printf("\x1B[35m|ESC|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|ESC|\x1B[0m", -1);
                 break;
             case P_STATE_NF:
-                printf("\x1B[35m|NF|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|NF|\x1B[0m", -1);
                 break;
             case P_STATE_CSI:
-                printf("\x1B[35m|CSI|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|CSI|\x1B[0m", -1);
                 break;
             case P_STATE_CSI_PARAMS:
-                printf("\x1B[35m|CSI_P|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|CSI_P|\x1B[0m", -1);
                 break;
             case P_STATE_OSC:
-                printf("\x1B[35m|OSC|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|OSC|\x1B[0m", -1);
                 break;
             case P_STATE_OSC_ESC:
-                printf("\x1B[35m|OSC_ESC|\x1B[0m");
+                diagnostics_write_string("\x1B[35m|OSC_ESC|\x1B[0m", -1);
                 break;
             default:
                 assert(false);
@@ -595,7 +598,7 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
         data ++;
         len --;
     }
-    fflush(stdout);
+    diagnostics_flush();
 }
 
 void action_noop(struct termbuf *tb, char ch) {}
@@ -1173,9 +1176,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[6n "Device status report"
     // We transmit "ESC[n;mR" to the shell where n is row and m is column.
     if (len == 1 && p1 == 6 && ch == 'n') {
-        printf("\n\x1B[36mTransmitting \"ESC[%d;%dR\" to shell.\x1B[0m\n",
-               tb->row,
-               tb->col);
+        diagnostics_type(DIAGNOSTICS_TERM_RESPONSE);
+        diagnostics_write_string("\n\x1B[36mGot a ESC[6n (device status "
+                                 "report) from the shell. Responding with \n"
+                                 "\"ESC[", -1);
+        diagnostics_write_int(tb->row);
+        diagnostics_write_string(";", -1);
+        diagnostics_write_int(tb->col);
+        diagnostics_write_string("R\" to the shell.\x1B[0m\n", -1);
+
         dprintf(tb->pty_fd, "\x1B[%d;%dR", tb->row, tb->col);
         fsync(tb->pty_fd);
         return;
