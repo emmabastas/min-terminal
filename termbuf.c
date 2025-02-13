@@ -6,8 +6,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <X11/Xlib.h>
-
 #include "./diagnostics.h"
 #include "./util.h"
 #include "./CuTest.h"
