@@ -46,8 +46,6 @@ void ringbuf_initialize(size_t capacity, struct ringbuf *rb_ret) {
            || capacity == 1 << 23
            || capacity == 1 << 24);
 
-    struct ringbuf rb;
-
     uint8_t *buf = calloc(capacity, 1);
     if (buf == NULL) {
         // calloc failure
@@ -235,6 +233,8 @@ void test_ringbuf_get_wrap_around(CuTest *tc) {
         CuAssertIntEquals(tc, '7' - i, ringbuf_get(&rb, i-32));
         CuAssertIntEquals(tc, '7' - i, ringbuf_get(&rb, i-(1 << 31)));
     }
+
+    free(rb.buf);
 }
 
 CuSuite *ringbuf_test_suite() {
