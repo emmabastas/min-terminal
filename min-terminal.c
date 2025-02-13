@@ -132,7 +132,6 @@ static int event_loop_self_pipes[2];
 #error "we don't have posix_openpt\n"
 #endif
 
-void run_all_tests();
 void handle_primary_pty_input();
 void handle_x11_event();
 void render();
@@ -883,8 +882,6 @@ int main(int argc, char **argv) {
 
     diagnostics_initialize();
 
-    run_all_tests();
-
     event_loop();
 
     assert(false);
@@ -900,13 +897,4 @@ void gl_debug_msg_callback(GLenum source,
                            const void *userParam) {
     printf("\x1b[31mGL error message:\x1B[m \"%s\"\n", message);
     assert(false);
-}
-
-void run_all_tests() {
-    CuString *output = CuStringNew();
-    CuSuite *suite = ringbuf_test_suite();
-    CuSuiteRun(suite);
-    CuSuiteSummary(suite, output);
-    CuSuiteDetails(suite, output);
-    printf("%s\n", output->buffer);
 }

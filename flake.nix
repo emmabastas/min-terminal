@@ -28,6 +28,7 @@
               gcc
               pkg-config
               cpplint
+              valgrind
               xorg.libX11
               libGL.dev
               harfbuzz

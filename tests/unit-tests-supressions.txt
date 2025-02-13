@@ -1,0 +1,28 @@
+{
+   ingore_CuTest_memory_leaks_1
+   Memcheck:Leak
+   ...
+   fun:CuSuiteRun
+   ...
+}
+{
+   ingore_CuTest_memory_leaks_2
+   Memcheck:Leak
+   ...
+   fun:CuSuiteNew
+   ...
+}
+{
+   ingore_CuTest_memory_leaks_3
+   Memcheck:Leak
+   ...
+   fun:CuTestNew
+   ...
+}
+{
+   ingore_CuTest_memory_leaks_4
+   Memcheck:Leak
+   ...
+   fun:CuStringNew
+   ...
+}
