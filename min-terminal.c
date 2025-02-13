@@ -124,6 +124,10 @@ static int primary_pty_fd;    // Used by the terminal process.
 static int secondary_pty_fd;  // Used by the shell process.
 static pid_t shell_pid;       // The PID of the shell process.
 
+// See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in `event_loop`
+// doc comment for rationale.
+static int event_loop_self_pipes[2];
+
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
 #endif
@@ -160,8 +164,80 @@ void render() {
 
 /*
   TODO: Write about the event loop.
+
+  * POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS
+    This section explains one particular bug I ran into with my event loop, and
+    how I solved it.
+    WHAT WE WANT: An event loop that handles multiple event sources with `poll`.
+    THE BUG WE OBSERVED: When I jammed my keyboard buttons, some events would
+        get "stuck". For instance, if I type the keys "qwert" all at once into
+        NuShell my terminal would display:
+        > qwe
+        If i then typed "y" some time later the terminal would display:
+        > qwerty
+        so the "rt" keys kinda got stuck.
+
+    To understand why this happened we need to understand how x11 operates: The
+    x11 client and server (x11 terminology is a bit confusing, I'm just going to
+    say that WE are the client, and whatever process performs our instructions
+    is the server) communicate via a single TCP socket where many types of data
+    flow through. One such type is events: The x11 server writes some data to
+    the socket when a key is pressed for instance, and the Xlib reads this data,
+    converts it into a XKeyPressedEvent and put's into into it's event queue.
+    When we poll in our event loop we poll on that very TCP socket, the way it's
+    intended to go follows now:
+    1) Perform poll
+    2) The user does something with the computer and the x11 server writes to
+       The TCP socket. We have this data:
+           socket: [<event data>]    event queue: []
+    3) The TCP socket now has data so we wake-up from our poll and end up
+       calling `handle_x11_event`.
+    4) The `handle_x11_event` function asks Xlib for the event queue, so Xlib
+       consumes the data in the socket:
+           socket: []    event queue: [<Event>]
+    5) We handle the events:
+           socket: []    event queue: []
+    6) Back to step (1).
+
+    But consider now if something happens with another file descriptor instead:
+    a) Perform poll
+    b) The shell process sends some data to the terminal
+    c) The `primary_pty_fd` now has data so we wake-up from our poll and end up
+       calling `handle_primary_pty_input`
+    d) While `handle_primary_pty_input` is executed the x11 server writes to
+       the socket (step (2) above), we have htis data:
+           socket: [<event data>]    event queue: []
+    e) Now `handle_primary_pty_input` issues some x11 request via an Xlib,
+       function call what, happens under the hood is that Xlib writes to the
+       socket which the x11 server is listening to, it then blocks while waiting
+       for a response,
+    f) The server responds:
+           socket: [<event data><response data>]    event queue: []
+    g) Xlib process all data on the socket in order to get the response data it
+       was waiting for:
+           socket: []    event queue:[<Event>]
+    h) Whatever Xlib function was called now returns and
+       `handle_primary_pty_input` finishes it's execution.
+    i) Back to step (a).
+
+    What went wrong here is that when we go back to step (a) all data in the
+    socket has been read, so the `handle_x11_event` won't be executed until a
+    completely new event comes in. However, there is an event in the Xlib event
+    queue! This event has now gotten "stuck".
+
+    The solution is that `handle_primary_pty_input` (and any future event
+    handler making Xlib calls) checks if there are events in the event queue at
+    the end of their execution, and if so, writes to a "self pipe" that will
+    make poll wake-up and execute `handle_x11_event`.
+
+    I think this is similar to how GLFW does it
+    https://github.com/glfw/glfw/pull/2033
+
  */
 void event_loop() {
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_write_string("\x1B[31mEntering event_loop\n\x1B[m", -1);
+
     // TODO: Better to do this in `win_attributes.event_mask`? Ideally I'd want
     //       the events mask to be tightly coupled with `handle_x11_events`..
     // Select which X11 events we're interested in.
@@ -174,7 +250,14 @@ void event_loop() {
 
     render();
 
-    #define N_EVENT_TYPES 2
+    // See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in
+    // `event_loop` doc comment for rationale.
+    int ret = pipe2(event_loop_self_pipes, O_NONBLOCK | O_CLOEXEC);
+    if (ret == -1) {
+        assert(false);
+    }
+
+    #define N_EVENT_TYPES 3
 
     struct pollfd pollfds[N_EVENT_TYPES] = {
         {
@@ -184,16 +267,21 @@ void event_loop() {
         {
             .fd = ConnectionNumber(display),
             .events = POLLIN,
+        },
+        {
+            .fd = event_loop_self_pipes[0],
+            .events = POLLIN,
         }
     };
 
     void (*handlers[N_EVENT_TYPES]) (void) = {
         handle_primary_pty_input,
         handle_x11_event,
+        handle_x11_event,
     };
 
     while(true) {
-        // Bug: This guard doesn't work since
+        // BUG: This guard doesn't work since
         // 69bbd0c151551b52c8884becd1654e4ccc5eda95
         //
         // I can make shell status a `poll` -able  file descriptor with
@@ -213,10 +301,15 @@ void event_loop() {
             while(true) { usleep(1000); }
         }
 
+        diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+        diagnostics_write_string("\x1B[31m>About to `poll`...\n", -1);
+
         // No performance benefits to to using `epoll` instead.
         ret = poll(pollfds, N_EVENT_TYPES, -1);  // -1 means infinite timeout.
         assert(ret != -1);  // means an error occured.
         assert(ret != 0);  // means we timed out which we shouldn't have done.
+
+        diagnostics_write_string("<Done polling\n\x1B[m", -1);
 
         for (int i = 0; i < N_EVENT_TYPES; i++) {
             assert((pollfds[i].revents & POLLERR)  == 0);
@@ -231,6 +324,9 @@ void event_loop() {
 }
 
 void handle_primary_pty_input() {
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_write_string("\x1B[31mhandle_primary_pty_input\x1B[m\n", -1);
+
     #define BUFSIZE 4096
     uint8_t buf[BUFSIZE];
     size_t did_read;
@@ -258,13 +354,34 @@ void handle_primary_pty_input() {
     }
 
     render();
+
+    // See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in
+    // `event_loop` doc comment for rationale.
+    if(XPending(display) > 0) {
+        int ret = write(event_loop_self_pipes[1], "x", 1);
+        if (ret == -1) {
+            assert(false);
+        }
+    }
 }
 
 void handle_x11_event() {
-    static bool window_focused = true;
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_write_string("\x1B[31mhandle_x11_event\x1B[m\n", -1);
+
+    // See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in
+    // `event_loop` doc comment for rationale.
+    static char buf[256];
+    size_t did_read = read(event_loop_self_pipes[0], buf, 256);
+    if (did_read == 256) {  // buf wasn't large enough
+        assert(false);
+    }
+
+    static bool window_focused = true;  // TODO: Maybe not always true??
     XEvent event;
 
-    while(XPending(display) > 0) {
+    int count = XPending(display);
+    while(count--) {  // This optimization might cause problems??
 
         XNextEvent(display, &event);
 
