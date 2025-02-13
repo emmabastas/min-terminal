@@ -554,41 +554,23 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
         entry.action(tb, *data);
 
         if (tb->p_state != entry.new_state) {
+            static const char *state_string_map[] = {
+                [P_STATE_GROUND]     = "GROUND",
+                [P_STATE_CHOMP1]     = "CHOMP1",
+                [P_STATE_CHOMP2]     = "CHOMP2",
+                [P_STATE_CHOMP3]     = "CHOMP3",
+                [P_STATE_ESC]        = "ESC",
+                [P_STATE_NF]         = "NF",
+                [P_STATE_CSI]        = "CSI",
+                [P_STATE_CSI_PARAMS] = "CSI_P",
+                [P_STATE_OSC]        = "OSC",
+                [P_STATE_OSC_ESC]    = "OSC_ESC",
+            };
+
             diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE);
-            switch(entry.new_state) {
-            case P_STATE_GROUND:
-                diagnostics_write_string("\x1B[35m|GROUND|\x1B[0m", -1);
-                break;
-            case P_STATE_CHOMP1:
-                diagnostics_write_string("\x1B[35m|CHOMP1|\x1B[0m", -1);
-                break;
-            case P_STATE_CHOMP2:
-                diagnostics_write_string("\x1B[35m|CHOMP2|\x1B[0m", -1);
-                break;
-            case P_STATE_CHOMP3:
-                diagnostics_write_string("\x1B[35m|CHOMP3|\x1B[0m", -1);
-                break;
-            case P_STATE_ESC:
-                diagnostics_write_string("\x1B[35m|ESC|\x1B[0m", -1);
-                break;
-            case P_STATE_NF:
-                diagnostics_write_string("\x1B[35m|NF|\x1B[0m", -1);
-                break;
-            case P_STATE_CSI:
-                diagnostics_write_string("\x1B[35m|CSI|\x1B[0m", -1);
-                break;
-            case P_STATE_CSI_PARAMS:
-                diagnostics_write_string("\x1B[35m|CSI_P|\x1B[0m", -1);
-                break;
-            case P_STATE_OSC:
-                diagnostics_write_string("\x1B[35m|OSC|\x1B[0m", -1);
-                break;
-            case P_STATE_OSC_ESC:
-                diagnostics_write_string("\x1B[35m|OSC_ESC|\x1B[0m", -1);
-                break;
-            default:
-                assert(false);
-            }
+            diagnostics_write_string("\x1B[35m|", -1);
+            diagnostics_write_string(state_string_map[entry.new_state], -1);
+            diagnostics_write_string("|\x1B[m", -1);
         }
 
         tb->p_state = entry.new_state;
