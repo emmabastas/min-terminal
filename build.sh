@@ -5,6 +5,7 @@ printf "  * Debug build                            : d\n"
 printf "  * Production build                       : p\n"
 printf "  * Build and run unit tests               : u\n"
 printf "  * Build and run unit tests with memcheck : um\n"
+printf "  * Run memcheck on ./min-terminal         : memcheck\n"
 read ans
 printf "\n"
 
@@ -29,6 +30,8 @@ cmd=""
 
 [ "$ans" == "um" ] && cmd="gcc $debug_flags $linker_flags -I glad/include/ $unit_test_input_files -o unit-test \
 && valgrind $memcheck_common_flags --suppressions=./tests/unit-tests-supressions.txt ./unit-test"
+
+[ "$ans" == "memcheck" ] && cmd="valgrind $memcheck_common_flag ./min-terminal"
 
 [ "$cmd" == "" ] && printf "Invalid input.\n" && exit 1
 
