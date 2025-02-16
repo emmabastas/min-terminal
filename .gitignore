@@ -1,3 +1,4 @@
 min-terminal
 unit-test
+tests/esctest2/
 *.o
