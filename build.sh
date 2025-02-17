@@ -37,7 +37,7 @@ cmd=""
 
 [ "$ans" == "get esctest" ] && cmd="cd ./tests && git clone git@github.com:ThomasDickey/esctest2.git --branch master --single-branch && cd esctest2 && git checkout fb8be26032ce4d5b8e05b2302d0492296aceec70 && cd ../../"
 
-[ "$ans" == "esctest" ] && cmd="./min-terminal ./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm"
+[ "$ans" == "esctest" ] && cmd="./min-terminal -e './tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm'"
 
 [ "$cmd" == "" ] && printf "Invalid input.\n" && exit 1
 
