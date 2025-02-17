@@ -959,6 +959,10 @@ void action_csi_chomp_next_param(struct termbuf *tb, char ch) {
     data->current_param ++;
 }
 
+void action_csi_intermediate(struct termbuf *tb, char ch) {
+    assert(false);
+}
+
 void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     assert('@' <= ch && ch <= '~');
 
@@ -1791,6 +1795,7 @@ action_csi_chomp_start        = "action_csi_chomp_start"
 action_csi_chomp_initial_char = "action_csi_chomp_initial_char"
 action_csi_chomp_param        = "action_csi_chomp_param"
 action_csi_chomp_next_param   = "action_csi_chomp_next_param"
+action_csi_intermediate       = "action_csi_intermediate"
 action_csi_chomp_final_byte   = "action_csi_chomp_final_byte"
 action_osc_chomp_start        = "action_osc_chomp_start"
 action_osc_chomp              = "action_osc_chomp"
@@ -1936,9 +1941,11 @@ table = [
   # P_STATE_CSI_PARAMS #
   ######################
   # Got something unexpected
-  [ P_STATE_CSI_PARAMS, r(0, 47) ,   P_STATE_GROUND, action_fail              ],
+  [ P_STATE_CSI_PARAMS, r(0, 0x1F),    P_STATE_GROUND, action_fail            ],
+  # Got an "intermediate byte"
+  [ P_STATE_CSI_PARAMS, r(0x20, 0x2F), P_STATE_GROUND, action_csi_intermediate],
   # We got a number!
-  [ P_STATE_CSI_PARAMS, r(48, 57), P_STATE_CSI_PARAMS, action_csi_chomp_param],
+  [ P_STATE_CSI_PARAMS, r(48, 57),  P_STATE_CSI_PARAMS, action_csi_chomp_param],
   # Got something unexpected
   [ P_STATE_CSI_PARAMS, [58]     ,   P_STATE_GROUND, action_fail              ],
   # Got something unexpected
@@ -5645,37 +5652,37 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_csi_intermediate, },
     { .new_state = P_STATE_CSI_PARAMS,
       .action = &action_csi_chomp_param, },
     { .new_state = P_STATE_CSI_PARAMS,
