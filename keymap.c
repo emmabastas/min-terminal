@@ -34,26 +34,31 @@
           computer will still se the same KEYCODEs, it's just that x11 utility
           functions like `Xutf8LookupString` will map them do different
           charecters.
-          * ESCAPE SEQUENCE. If I type KEY 38 and the X Input Context maps this to the
-          LETTER 'a' it pretty obvious what to do: The terminal sends the byte
-          0x61 to the shell. However, what happens if I type KEY 114 which the
-          XIC tells me is the "right arrow" SYMBOL. There is no letter that
+          * ESCAPE SEQUENCE. If I type KEY 38 and the X Input Context maps this
+          to the LETTER 'a' it pretty obvious what to do: The terminal sends the
+          byte 0x61 to the shell. However, what happens if I type KEY 114 which
+          the XIC tells me is the "right arrow" SYMBOL. There is no letter that
           corresponds to this SYMBOL. The solution is to send special escape
           sequences to the computer, for instance (depending on certain terminal
           flags) I chould send the bytes 0x1b, 0x5b and 0x43 (ESC[C) which the
           shell would iterpret as a the right arrow SYMBOL having been pressed.
 
-          Since X11 has utility functions for mapping KEYs to LETTERs and SYMBOLs we
-          happilly let X11 do this for us. However, we still need to map certain
-          SYMBOLs to ESCAPE SEQUENCEs ourselves, this is where the complexity commes
-          in. There are two things that influcence how a specific SYMBOL is mapped:
+          There's some writing about this on Wikipedia:
+          https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences
+
+          Since X11 has utility functions for mapping KEYs to LETTERs and
+          SYMBOLs we happilly let X11 do this for us. However, we still need to
+          map certain SYMBOLs to ESCAPE SEQUENCEs ourselves, this is where the
+          complexity commes in. There are two things that influcence how a
+          specific SYMBOL is mapped:
           1) MODIFIER KEYs.
-          2) Terminal flags. In particular the two flags FLAG_APPLICATION_CURSOR and
-          FLAG_APPLICATION_KEYPAD.
+          2) Terminal flags. In particular the two flags FLAG_APPLICATION_CURSOR
+          and FLAG_APPLICATION_KEYPAD.
           We encode our mappings as a list of "constraints" which is a sturct
-          containing an ESCAPE SEQUENCE that should be sent if certain constraints are
-          met. So when a SYMBOL is typed we run through this list of constraints until
-          one of them is met, and then we know what ESCAPE SEQUENCE to send.
+          containing an ESCAPE SEQUENCE that should be sent if certain
+          constraints are met. So when a SYMBOL is typed we run through this
+          list of constraints until one of them is met, and then we know what
+          ESCAPE SEQUENCE to send.
 */
 
 
