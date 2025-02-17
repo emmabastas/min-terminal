@@ -12,7 +12,7 @@ read ans
 printf "\n"
 
 linker_flags="-lc -lm -lharfbuzz -lX11 -lGLX -lGL"
-input_files="CuTest.c min-terminal.c ringbuf.c termbuf.c rendering.c keymap.c diagnostics.c util.c glad/src/gl.c glad/src/glx.c"
+input_files="CuTest.c min-terminal.c ringbuf.c termbuf.c rendering.c keymap.c arguments.c diagnostics.c util.c glad/src/gl.c glad/src/glx.c"
 unit_test_input_files="CuTest.c ./tests/unit-tests.c ringbuf.c termbuf.c rendering.c keymap.c diagnostics.c util.c glad/src/gl.c glad/src/glx.c"
 debug_flags="-g -Og -std=gnu99 -pedantic"
 production_flags="-O3 -std=gnu99 -pedantic"

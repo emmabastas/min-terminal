@@ -75,7 +75,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -85,8 +84,6 @@
 #include <assert.h>
 #include <libgen.h>
 #include <limits.h>
-#include <argp.h>
-#include <wordexp.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
@@ -102,6 +99,7 @@
 #include "./ringbuf.h"
 #include "./termbuf.h"
 #include "./keymap.h"
+#include "./arguments.h"
 #include "./diagnostics.h"
 #include "./util.h"
 
@@ -517,102 +515,11 @@ void handle_x11_event() {
     }
 }
 
-static const char *ARGP_PROGRAM_VERSION = "min-terminal";
-static const char *ARGP_PROGRAM_BUG_ADDRESS = "<emma.bastas@protonmail.com>";
-static const char DOC[] = "DOC";
-static const char ARGS_DOC[] = "ARGS_DOC";
-
-static const struct argp_option ARGP_OPTIONS[] = {
-    { "execute", 'e', "\"command args ...\"", 0,
-      "Specify a command for the terminal to execute" },
-    { 0 },
-};
-
-struct arguments {
-    wordexp_t execute;
-};
-
-static error_t parse_opt(int key, char *arg, struct argp_state *state) {
-    struct arguments *arguments = state->input;
-
-    int ret;
-    switch(key) {
-    case 'e':
-        ret = wordexp(arg,
-                      &arguments->execute,
-                      WRDE_DOOFFS  | WRDE_NOCMD | WRDE_SHOWERR | WRDE_UNDEF);
-        switch(ret) {
-        case 0:  // Sucess.
-            break;
-        case WRDE_BADCHAR:
-        case WRDE_BADVAL:
-        case WRDE_CMDSUB:
-        case WRDE_NOSPACE:
-        case WRDE_SYNTAX:
-            assert(false);  // TODO: Handle these.
-        default:
-            assert(false);
-        }
-
-        return 0;
-    case ARGP_KEY_ARGS:     // Don't really know what this is.
-        assert(false);
-    case ARGP_KEY_ARG:      // This is called for positional arguments, we don't
-        fprintf(stderr,     // expect any positionals so print usage.
-                "I saw a positional argument `%s` but I don't expect any"
-                "positionals.\n\n",
-                arg);
-        argp_usage(state);
-    case ARGP_KEY_NO_ARGS:  // These cases we simply ignore.
-    case ARGP_KEY_END:
-    case ARGP_KEY_INIT:
-    case ARGP_KEY_SUCCESS:
-    case ARGP_KEY_ERROR:
-    case ARGP_KEY_FINI:
-        return 0;
-    default:
-        diagnostics_type(DIAGNOSTICS_MISC);
-        diagnostics_write_string("Unhandled option \'", -1);
-        diagnostics_write_string((char *) &key, 1);
-        diagnostics_write_string("\'\n", -1);
-        assert(false);
-    }
-}
-
-static struct argp argp = { ARGP_OPTIONS, parse_opt, ARGS_DOC, DOC };
-
 int main(int argc, char **argv) {
     diagnostics_initialize();
 
-    struct arguments arguments = {
-        .execute = (wordexp_t) {
-            .we_offs = 0,
-            .we_wordc = 0,  // These two will be overwritten while parsing
-            .we_wordv = 0,  // cli arguments.
-        },
-    };
-
-    argp_parse(&argp, argc, argv, 0, 0, &arguments);
-
-    if (arguments.execute.we_wordc == 0) {
-        char *shell_command = secure_getenv("SHELL");
-
-        // SHELL environment variable wasn't set (or "secure execution" is
-        // required but I won't handle that case).
-        if (shell_command == NULL) {
-            fprintf(stderr,
-                    "Environment variable SHELL wasn't set, either give it a "
-                    "value or run `min-terminal -e \"command args ...\"`\n");
-            return -1;
-        }
-
-        arguments.execute.we_wordv = malloc(2 * sizeof(char *));
-        arguments.execute.we_wordv[0] = shell_command;
-        arguments.execute.we_wordv[1] = NULL;
-        arguments.execute.we_wordc = 1;
-    }
-    assert(arguments.execute.we_wordc > 0);
-    assert(arguments.execute.we_wordv[arguments.execute.we_wordc] == NULL);
+    struct arguments args;
+    arguments_parse(argc, argv, &args);
 
     display = XOpenDisplay(NULL);
     if (!display) { assert(false); }
@@ -853,15 +760,9 @@ int main(int argc, char **argv) {
     }
     printf("The pty is in %s.\n", primary_pty_name);
 
-
-    // TODO: If we_wordv_[0] is a path we should extract the name bit.
-    const char* program_name = arguments.execute.we_wordv[0];
-    const char* program_path = arguments.execute.we_wordv[0];
-    arguments.execute.we_wordv[0] = (char *) program_name;
-
     diagnostics_type(DIAGNOSTICS_MISC);
     diagnostics_write_string("execvp(\"", -1);
-    diagnostics_write_string(program_path, -1);
+    diagnostics_write_string(args.program_path, -1);
     diagnostics_write_string("\", <argv>);", -1);
     diagnostics_flush();
 
@@ -912,7 +813,7 @@ int main(int argc, char **argv) {
             assert(false);
         }
 
-        setenv("SHELL", program_path, 1);
+        setenv("SHELL", args.program_path, 1);
         setenv("TERM", "st-256color", 1);
 
         signal(SIGCHLD, SIG_DFL);
@@ -925,11 +826,11 @@ int main(int argc, char **argv) {
         // If execvp fails it returns -1,
         // if it succeeds then the new program takes over execution and this
         // branch effectively halts.
-        int ret = execvp(program_path,
-                         arguments.execute.we_wordv);
+        int ret = execvp(args.program_path,
+                         args.argv);
         if (ret == -1) {
             printf("Error executing shell command `%s`, errno %d: %s.\n",
-                   program_path,
+                   args.program_path,
                    errno,
                    strerror(errno));
             return -1;
