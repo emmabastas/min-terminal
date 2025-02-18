@@ -7125,14 +7125,3 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
       .action = &action_osc_chomp, },
 };
 //[[[end]]]
-
-
-
-/*
- * Unit tests bellow
- */
-
-CuSuite *termbuf_test_suite() {
-    CuSuite *suite = CuSuiteNew();
-    return suite;
-}

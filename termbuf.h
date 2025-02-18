@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include <X11/Xlib.h>
 
-#include "./CuTest.h"
-
 // These flags are used in two places
 // 1) Each terminal cell (termbuf_char) has a flags field that represents it's
 //    apperance.
@@ -165,7 +163,5 @@ void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
 // all other lines up one row to make room for a new empty row. This function
 // does that
 void termbuf_shift(struct termbuf *tb);
-
-CuSuite *termbuf_test_suite();
 
 #endif /* INCLUDED_TERMBUF_H */
