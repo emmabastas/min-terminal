@@ -553,23 +553,26 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
 
         entry.action(tb, *data);
 
+        // TODO: This constant is redefined in different places, have on shared
+        //       map instead.
         if (tb->p_state != entry.new_state) {
-            static const char *state_string_map[] = {
-                [P_STATE_GROUND]     = "GROUND",
-                [P_STATE_CHOMP1]     = "CHOMP1",
-                [P_STATE_CHOMP2]     = "CHOMP2",
-                [P_STATE_CHOMP3]     = "CHOMP3",
-                [P_STATE_ESC]        = "ESC",
-                [P_STATE_NF]         = "NF",
-                [P_STATE_CSI]        = "CSI",
-                [P_STATE_CSI_PARAMS] = "CSI_P",
-                [P_STATE_OSC]        = "OSC",
-                [P_STATE_OSC_ESC]    = "OSC_ESC",
+            static const char *STATE_STRING_MAP[] = {
+                [P_STATE_GROUND]           = "GROUND",
+                [P_STATE_CHOMP1]           = "CHOMP1",
+                [P_STATE_CHOMP2]           = "CHOMP2",
+                [P_STATE_CHOMP3]           = "CHOMP3",
+                [P_STATE_ESC]              = "ESC",
+                [P_STATE_NF]               = "NF",
+                [P_STATE_CSI]              = "CSI",
+                [P_STATE_CSI_PARAMS]       = "CSI_P",
+                [P_STATE_CSI_INTERMEDIATE] = "SCI_I",
+                [P_STATE_OSC]              = "OSC",
+                [P_STATE_OSC_ESC]          = "OSC_ESC",
             };
 
             diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE);
             diagnostics_write_string("\x1B[35m|", -1);
-            diagnostics_write_string(state_string_map[entry.new_state], -1);
+            diagnostics_write_string(STATE_STRING_MAP[entry.new_state], -1);
             diagnostics_write_string("|\x1B[m", -1);
         }
 
@@ -587,16 +590,18 @@ void action_fail(struct termbuf *tb, char ch) {
     // TODO: A problem here is that we might be displaying parse data from
     //       a previous "round", leading us astray when debugging.
 
-    const char *PARSER_STATE_NAME_MAP[] = {
-        [P_STATE_GROUND] = "P_STATE_GROUND",
-        [P_STATE_CHOMP1] = "P_STATE_CHOMP1",
-        [P_STATE_CHOMP2] = "P_STATE_CHOMP2",
-        [P_STATE_CHOMP3] = "P_STATE_CHOMP3",
-        [P_STATE_ESC]    = "P_STATE_ESC",
-        [P_STATE_CSI]    = "P_STATE_CSI",
-        [P_STATE_CSI_PARAMS] = "P_STATE_CSI_PARAMS",
-        [P_STATE_OSC]     = "P_STATE_OSC",
-        [P_STATE_OSC_ESC] = "P_STATE_OSC_ESC",
+    static const char *STATE_STRING_MAP[] = {
+        [P_STATE_GROUND]           = "GROUND",
+        [P_STATE_CHOMP1]           = "CHOMP1",
+        [P_STATE_CHOMP2]           = "CHOMP2",
+        [P_STATE_CHOMP3]           = "CHOMP3",
+        [P_STATE_ESC]              = "ESC",
+        [P_STATE_NF]               = "NF",
+        [P_STATE_CSI]              = "CSI",
+        [P_STATE_CSI_PARAMS]       = "CSI_P",
+        [P_STATE_CSI_INTERMEDIATE] = "SCI_I",
+        [P_STATE_OSC]              = "OSC",
+        [P_STATE_OSC_ESC]          = "OSC_ESC",
     };
 
     fprintf(stderr,
@@ -605,7 +610,7 @@ void action_fail(struct termbuf *tb, char ch) {
             "    state        : %d %s\n"
             "    ch           : %d / '%c'\n",
             tb->p_state,
-            PARSER_STATE_NAME_MAP[tb->p_state],
+            STATE_STRING_MAP[tb->p_state],
             ch, ch);
 
     if (tb->p_state == P_STATE_CSI_PARAMS) {
