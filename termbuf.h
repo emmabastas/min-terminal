@@ -78,17 +78,18 @@ enum parser_state {
     P_STATE_NF = 5,
     // The parser has now encountered "ESC[", meaning we started a CSI escape
     // sequence.
-    P_STATE_CSI        = 6,
-    P_STATE_CSI_PARAMS = 7,
+    P_STATE_CSI              = 6,
+    P_STATE_CSI_PARAMS       = 7,
+    P_STATE_CSI_INTERMEDIATE = 8,
     // The parser has now encountered "ESC]", meaning we started an OSC escape
     // sequence We won't do anything with the OSC sequences so we just chomp
     // them til their end (marked by "ESC\" (C1 "ST")) and then ignore the
     // results.
-    P_STATE_OSC        = 8,
+    P_STATE_OSC        = 9,
     // We got the "ESC" in what we pressume to be a C1 string terminator "ESC\".
-    P_STATE_OSC_ESC    = 9,
+    P_STATE_OSC_ESC    = 10,
 };
-#define NSTATES 10
+#define NSTATES 11
 
 #define CSI_CHOMPING_MAX_PARAMS 5
 
@@ -108,6 +109,11 @@ union parser_data {
         // missing, for instance ESC[;10H would give something like:
         // `params = { -1, 10, -1, -1, -1}
         uint16_t params[CSI_CHOMPING_MAX_PARAMS];
+        uint8_t  intermediate;  // Byte in range 0x20--0x2F.
+                                // -1 means no intermediate byte.
+                                // Any number of these can occur after
+                                // parameters and befire the finaly byte, for
+                                // now we support only one intermediate byte
     } ansi_csi_chomping;
     struct ansi_osc_chomping {
         uint16_t len;
