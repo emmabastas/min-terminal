@@ -1,0 +1,23 @@
+# From https://blog.michaelkelly.org/2023/05/mirroring-sourcehut-repositories-to-github/
+
+image: alpine/edge
+secrets:
+  - "b9447561-6f6d-426d-8e55-1d2dc0790257"
+environment:
+  REPO: "min-terminal"
+  GH_USER: "emmabastas"
+tasks:
+  - write-ssh-config: |
+      cat <<_FILE_ >> ~/.ssh/config
+      Host github.com
+        IdentityFile ~/.ssh/id_rsa
+        IdentitiesOnly yes
+        BatchMode yes
+        StrictHostKeyChecking no
+      _FILE_
+  - push-to-github: |
+      cd ~/"${REPO}"
+      # remove remotes/origin/HEAD so we don't push it
+      git remote set-head origin -d
+      git remote add github "git@github.com:${GH_USER}/${REPO}.git"
+      git push --prune github '+refs/remotes/origin/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
