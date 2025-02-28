@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../CuTest.h"
+#include <CuTest.h>
 #include "../ringbuf.h"
 
 int main(void) {

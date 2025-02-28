@@ -11,7 +11,7 @@
 #include "./termbuf.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "./stb_truetype.h"
+#include <stb_truetype.h>
 
 static const char *ttf_path =
     "/nix/store/wmdjq77kb88av295fcx600ff13v2vh7k-home-manager-path"

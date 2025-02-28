@@ -12,10 +12,11 @@ read ans
 printf "\n"
 
 linker_flags="-lc -lm -lharfbuzz -lX11 -lGLX -lGL"
-input_files="CuTest.c min-terminal.c ringbuf.c termbuf.c rendering.c keymap.c arguments.c diagnostics.c util.c glad/src/gl.c glad/src/glx.c"
-unit_test_input_files="CuTest.c ./tests/unit-tests.c ringbuf.c termbuf.c rendering.c keymap.c diagnostics.c util.c glad/src/gl.c glad/src/glx.c"
+input_files="dist/CuTest.c min-terminal.c ringbuf.c termbuf.c rendering.c keymap.c arguments.c diagnostics.c util.c dist/glad/src/gl.c dist/glad/src/glx.c"
+unit_test_input_files="dist/CuTest.c ./tests/unit-tests.c ringbuf.c termbuf.c rendering.c keymap.c diagnostics.c util.c dist/glad/src/gl.c dist/glad/src/glx.c"
 debug_flags="-g -Og -std=gnu99 -pedantic"
 production_flags="-O3 -std=gnu99 -pedantic"
+includes="-I dist/ -I dist/glad/include/"
 
 memcheck_common_flags="--tool=memcheck \
 --leak-check=full \
@@ -24,13 +25,13 @@ memcheck_common_flags="--tool=memcheck \
 
 cmd=""
 
-[ "$ans" == "d" ] && cmd="gcc $debug_flags $linker_flags -I glad/include/ $input_files -o min-terminal"
+[ "$ans" == "d" ] && cmd="gcc $debug_flags $linker_flags $includes $input_files -o min-terminal"
 
-[ "$ans" == "p" ] && cmd="gcc $production_flags $linker_flags -I glad/include/ $input_files -o min-terminal"
+[ "$ans" == "p" ] && cmd="gcc $production_flags $linker_flags $includes $input_files -o min-terminal"
 
-[ "$ans" == "u" ] && cmd="gcc $production_flags $linker_flags -I glad/include/ $unit_test_input_files -o unit-test && ./unit-test"
+[ "$ans" == "u" ] && cmd="gcc $production_flags $linker_flags $includes $unit_test_input_files -o unit-test && ./unit-test"
 
-[ "$ans" == "um" ] && cmd="gcc $debug_flags $linker_flags -I glad/include/ $unit_test_input_files -o unit-test \
+[ "$ans" == "um" ] && cmd="gcc $debug_flags $linker_flags $includes $unit_test_input_files -o unit-test \
 && valgrind $memcheck_common_flags --suppressions=./tests/unit-tests-supressions.txt ./unit-test"
 
 [ "$ans" == "memcheck" ] && cmd="valgrind $memcheck_common_flag ./min-terminal"
