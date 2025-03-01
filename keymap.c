@@ -1,6 +1,6 @@
 /*
-  This module is concearned with one thing only: When a user presses a key on
-  their keyboard, what should we send to the shell? This task is suprisingly
+  This module is concerned with one thing only: When a user presses a key on
+  their keyboard, what should we send to the shell? This task is surprisingly
   involved, hence it's own module. Before we discuss the details, some
   terminology is in order
 
@@ -9,39 +9,30 @@
           keyboard.
     * XKeyPressedEvent. We get this event from X11 whenever a KEY is pressed.
     * KEYCODE. Every KEY has a numerical KEYCODE associated with it. This number
-          lives in the XKeyPressedEvent's `xxx` field.
+          lives in the XKeyPressedEvent's `keycode` field.
     * MODIFIER KEY. These refer to special KEYs like Shift, Ctrl, and so on,
           they "modify" how other KEYs are to be interpreted, for instance, if
           I type the 'd' while simulataneously holding down Shift and AltGr the
           letter 'Ð' appears on my screen. XKeyPressedEvent's `state` field
           contains an OR'ed bitset of all MODIFIER KEYs pressed down while
           XKeyPressedEvent occurs.
-    * LETTERS, SYMBOLS and INPUT CONTEXTs. Altough KEY 38 is just a number to
-          the computer, me the human can see that the LETTER 'a' on the keycap,
-          and so I expect the computer to understand it as such. Similarily I
-          expect the computer to understand that KEY 114 is the right-arrow
-          SYMBOL. If I then change from a QWERTY layout to DVORAK, all of a
-          sudden I expect the computer to understand KEY 38 as the LETTER 'XX'
-          instead. How is this done? Well, X11 has a notion of an INPUT CONTEXT
-          which detrmines how it's utility functions like `Xutf8LookupString`
-          map KEYs to LETTERS and SYMBOLS.
     * INPUT CONTEXT. A KEYCODE is just a number, when I type 'd' on the computer
           while holding down Shift and AltGr the computer only sees:
           > Key 40 pressed while key 50 and 92 where held down.
           In order to make sense of this we need to map key codes to characters,
           x11 has utility functions for doing so, and the X Input Context (XIC)
           is what determines how the keycodes are mapped. If I change the IC the
-          computer will still se the same KEYCODEs, it's just that x11 utility
+          computer will still see the same KEYCODEs, it's just that x11 utility
           functions like `Xutf8LookupString` will map them do different
-          charecters.
-          * ESCAPE SEQUENCE. If I type KEY 38 and the X Input Context maps this
-          to the LETTER 'a' it pretty obvious what to do: The terminal sends the
-          byte 0x61 to the shell. However, what happens if I type KEY 114 which
-          the XIC tells me is the "right arrow" SYMBOL. There is no letter that
+          characters.
+    * ESCAPE SEQUENCE. If I type KEY 38 and the X Input Context maps this to the
+          LETTER 'a' it pretty obvious what to do: The terminal sends the byte
+          0x61 to the shell. However, what happens if I type KEY 114 which the
+          XIC tells me is the "right arrow" SYMBOL. There is no letter that
           corresponds to this SYMBOL. The solution is to send special escape
           sequences to the computer, for instance (depending on certain terminal
-          flags) I chould send the bytes 0x1b, 0x5b and 0x43 (ESC[C) which the
-          shell would iterpret as a the right arrow SYMBOL having been pressed.
+          flags) I should send the bytes 0x1b, 0x5b and 0x43 (ESC[C) which the
+          shell would interpret as a the right arrow SYMBOL having been pressed.
 
           There's some writing about this on Wikipedia:
           https://en.wikipedia.org/wiki/ANSI_escape_code#Terminal_input_sequences
@@ -49,7 +40,7 @@
           Since X11 has utility functions for mapping KEYs to LETTERs and
           SYMBOLs we happilly let X11 do this for us. However, we still need to
           map certain SYMBOLs to ESCAPE SEQUENCEs ourselves, this is where the
-          complexity commes in. There are two things that influcence how a
+          complexity comes in. There are two things that influence how a
           specific SYMBOL is mapped:
           1) MODIFIER KEYs.
           2) Terminal flags. In particular the two flags FLAG_APPLICATION_CURSOR
@@ -72,7 +63,7 @@
 #include <limits.h>
 #include <assert.h>
 
-#define XK_MISCELLANY  // These defines makes keysymde.h include certain things
+#define XK_MISCELLANY  // These defines makes keysymdef.h include certain things
 #define XK_XKB_KEYS    // we want.
 #include <X11/keysymdef.h>
 
@@ -101,8 +92,8 @@ struct constraint_s {
     // bitsets ANY_MOD and NO_MOD defined bellow, there's also a
     // IGNORED_MODIFIERS which influences what constitutes a match.
     uint c1;
-    // This constraint concearns the two terminal flags FLAG_APPLICATION_CURSOR
-    // and FLAG_APPLICATION_KEYPAD, and wheter or not numlock is activated on
+    // This constraint concerns the two terminal flags FLAG_APPLICATION_CURSOR
+    // and FLAG_APPLICATION_KEYPAD, and whether or not numlock is activated on
     // the keyboard (indicated by X11's Mod2Mask modifier key). If you want to
     // understand the specifics this this encoding encoding you can check the
     // code, but all you need to know is that there are special constants
@@ -231,24 +222,24 @@ void handle_x11_keypress(XKeyPressedEvent event) {
     }
 }
 
-const static uint8_t NNN = 16 | 4 | 1;               // 0b010101
-const static uint8_t NNY = 16 | 4 | 2;               // 0b010110
-const static uint8_t NN_ = 16 | 4 | 2 | 1;           // 0b010111
-const static uint8_t NYN = 16 | 8 | 1;               // 0b011001
-const static uint8_t NYY = 16 | 8 | 2;               // 0b011010
-const static uint8_t NY_ = 16 | 8 | 2 | 1;           // 0b011011
-const static uint8_t N_N = 16 | 8 | 4 | 1;           // 0b011101
-const static uint8_t N_Y = 16 | 8 | 4 | 2;           // 0b011110
-const static uint8_t N__ = 16 | 8 | 4 | 2 | 1;       // 0b011111
-const static uint8_t YNN = 32 | 4 | 1;               // 0b100101
-const static uint8_t YNY = 32 | 4 | 2;               // 0b100110
-const static uint8_t YN_ = 32 | 4 | 2 | 1;           // 0b100111
-const static uint8_t YYN = 32 | 8 | 1;               // 0b101001
-const static uint8_t YYY = 32 | 8 | 2;               // 0b101010
-const static uint8_t YY_ = 32 | 8 | 2 | 1;           // 0b101011
-const static uint8_t Y_N = 32 | 8 | 4 | 1;           // 0b101101
-const static uint8_t Y_Y = 32 | 8 | 4 | 2;           // 0b101110
-const static uint8_t Y__ = 32 | 8 | 4 | 2 | 1;       // 0b101111
+const static uint8_t NNN = 16 | 4  | 1;              // 0b010101
+const static uint8_t NNY = 16 | 4  | 2;              // 0b010110
+const static uint8_t NN_ = 16 | 4  | 2 | 1;          // 0b010111
+const static uint8_t NYN = 16 | 8  | 1;              // 0b011001
+const static uint8_t NYY = 16 | 8  | 2;              // 0b011010
+const static uint8_t NY_ = 16 | 8  | 2 | 1;          // 0b011011
+const static uint8_t N_N = 16 | 8  | 4 | 1;          // 0b011101
+const static uint8_t N_Y = 16 | 8  | 4 | 2;          // 0b011110
+const static uint8_t N__ = 16 | 8  | 4 | 2 | 1;      // 0b011111
+const static uint8_t YNN = 32 | 4  | 1;              // 0b100101
+const static uint8_t YNY = 32 | 4  | 2;              // 0b100110
+const static uint8_t YN_ = 32 | 4  | 2 | 1;          // 0b100111
+const static uint8_t YYN = 32 | 8  | 1;              // 0b101001
+const static uint8_t YYY = 32 | 8  | 2;              // 0b101010
+const static uint8_t YY_ = 32 | 8  | 2 | 1;          // 0b101011
+const static uint8_t Y_N = 32 | 8  | 4 | 1;          // 0b101101
+const static uint8_t Y_Y = 32 | 8  | 4 | 2;          // 0b101110
+const static uint8_t Y__ = 32 | 8  | 4 | 2 | 1;      // 0b101111
 const static uint8_t _NN = 32 | 16 | 4 | 1;          // 0b110101
 const static uint8_t _NY = 32 | 16 | 4 | 2;          // 0b110110
 const static uint8_t _N_ = 32 | 16 | 4 | 2 | 1;      // 0b110111
@@ -260,7 +251,6 @@ const static uint8_t __Y = 32 | 16 | 8 | 4 | 2;      // 0b111110
 const static uint8_t ___ = 32 | 16 | 8 | 4 | 2 | 1;  // 0b111111
 
 static struct constraint_s special_keys_map[N_SPECIAL_KEYS] = {
-    //                                       appkey appcursor numlock
     // keysym           c1                              c2
     { XK_KP_Home,       ShiftMask,                      _N_, "\033[2J"   },
     { XK_KP_Home,       ShiftMask,                      _Y_, "\033[1;2H" },
