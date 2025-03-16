@@ -93,7 +93,7 @@ enum parser_state {
 };
 #define NSTATES 11
 
-#define CSI_CHOMPING_MAX_PARAMS 5
+#define CSI_CHOMPING_MAX_PARAMS 6
 
 union parser_data {
     struct utf8_chomping {
