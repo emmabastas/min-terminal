@@ -435,6 +435,9 @@ void handle_x11_event() {
             printf("\n\x1B[36m> ConfigureNotify event\x1B[0m\n");
 
             XConfigureEvent xce = event.xconfigure;
+
+            // This event can happen for many reasons, one of them being when
+            // the window is resized, which is the what were interested in.
             if (xce.width == window_height && xce.height == window_width) {
                 continue;
             }
@@ -443,7 +446,7 @@ void handle_x11_event() {
             window_height = xce.height;
             // TODO
 
-            // The same math that st uses
+            // Calculate a new column and row count.
             int nrows, ncols;
             rendering_calculate_sizes(window_height - 2 * BORDERPX,
                                       window_width - 2 * BORDERPX,
@@ -451,18 +454,20 @@ void handle_x11_event() {
                                       &ncols,
                                       &nrows);
 
-            // TODO: resize termbuf
+            termbuf_resize(&tb, nrows, ncols);
 
+            // Update the dimensions of the pty file descriptor
             struct winsize w = {
                 .ws_row = nrows,
                 .ws_col = ncols,
+                .ws_xpixel = 0,  // unused.
+                .ws_ypixel = 0,  // unused.
             };
 
-            int ret = ioctl(primary_pty_fd, TIOCSWINSZ, &w);
+            int ret = ioctl(secondary_pty_fd, TIOCSWINSZ, &w);
             if (ret == -1) {
                 assert(false);
             }
-
 
             continue;
         }
@@ -797,7 +802,7 @@ int main(int argc, char **argv) {
             assert(false);
         }
 
-        // Set the dimensions of the terminal
+        // Set the dimensions of the pty file descriptor.
         struct winsize ws = {
             .ws_row = nrows,
             .ws_col = ncols,

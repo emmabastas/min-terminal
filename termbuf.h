@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <X11/Xlib.h>
 
+#include "./CuTest.h"
+
 // These flags are used in two places
 // 1) Each terminal cell (termbuf_char) has a flags field that represents it's
 //    apperance.
@@ -162,12 +164,16 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
 // Insert a single utf8 encoded character with the styling (bold, italic,
 // foreground color, etc.) that the terminal currently has, and advance to
 // cursor appropriately.
-void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len);
+void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len);
 
 // When the cursor is at the bottom at the terminal, and we encounter a line
 // feed '\n' we should push the topmost row into the scrollback buffer and shift
 // all other lines up one row to make room for a new empty row. This function
 // does that
 void termbuf_shift(struct termbuf *tb);
+
+void termbuf_resize(struct termbuf *tb, int nnrows, int nncols);
+
+CuSuite *termbuf_test_suite();
 
 #endif /* INCLUDED_TERMBUF_H */

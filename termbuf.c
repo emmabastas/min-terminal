@@ -376,7 +376,7 @@ void termbuf_memzero(struct termbuf *tb,
     for (int row = dest.y; row < dest.y + count.y; row ++) {
         for (int col = dest.x ; col < dest.x + count.x; col++) {
 
-            // This makes the terminal display the memzero'ed area in read, good
+            // This makes the terminal display the memzero'ed area in red, good
             // for debugging.
             // tb->buf[pair_to_offset(tb, pair(row, col))] =
             //     (struct termbuf_char) {
@@ -405,7 +405,7 @@ void termbuf_memmove(struct termbuf *tb,
 
     // TODO: We don't want to dynamically allocate memory if we can help it, so
     //       when we've implemented a scrollback (ring) buffer we can use part
-    //       of it as a temporary memory block.
+    //       of it as a temporary memory block maybe?
     struct termbuf_char *temp = malloc(count.x * count.y
                                        * sizeof(struct termbuf_char));
 
@@ -469,7 +469,7 @@ void termbuf_initialize(int nrows,
     }
 }
 
-void termbuf_insert(struct termbuf *tb, uint8_t *utf8_char, int len) {
+void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
     assert(len > 0);
     assert(len <= 4);
 
@@ -526,6 +526,36 @@ void termbuf_shift(struct termbuf *tb) {
             tb->buf + tb->ncols,
             (tb->nrows - 1) * bytes_per_row);
     memset(tb->buf + (tb->nrows - 1) * tb->ncols, 0, bytes_per_row);
+}
+
+void termbuf_resize(struct termbuf *tb, int nnrows, int nncols) {
+    assert(nnrows > 0);
+    assert(nncols > 0);
+
+    struct termbuf_char *new_buf = calloc(nnrows * nncols,
+                                          sizeof(struct termbuf_char));
+
+    int rows = nnrows < tb->nrows ? nnrows : tb->nrows;
+    int cols = nncols < tb->ncols ? nncols : tb->ncols;
+    for (int row = 1; row <= rows; row++) {
+        for (int col = 1; col <= cols; col++) {
+            new_buf[col - 1 + (row - 1) * nncols] =
+                tb->buf[col - 1 + (row - 1) * tb->ncols];
+        }
+    }
+
+    // TODO: What about saved cursor?
+    tb->saved_row = 1;
+    tb->saved_col = 1;
+
+    // TODO: fix.
+    tb->row = 1;
+    tb->col = 1;
+
+    free(tb->buf);
+    tb->buf = new_buf;
+    tb->nrows = nnrows;
+    tb->ncols = nncols;
 }
 
 
@@ -7674,3 +7704,132 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
       .action = &action_osc_chomp, },
 };
 //[[[end]]]
+
+
+
+////////////////
+// UNIT TESTS //
+////////////////
+
+
+void cu_assert_buf_equals(CuTest *tc, struct termbuf *tb1, struct termbuf *tb2)
+{
+    CuAssertIntEquals(tc, tb1->nrows, tb2->nrows);
+    CuAssertIntEquals(tc, tb1->ncols, tb2->ncols);
+
+    int nrows = tb1->nrows;
+    int ncols = tb1->ncols;
+
+    unsigned char *tmp1 = calloc(nrows, sizeof(struct termbuf_char));
+    unsigned char *tmp2 = calloc(nrows, sizeof(struct termbuf_char));
+
+    for(int row = 1; row <= tb1->nrows; row++) {
+        for (int col = 1; col <= tb1->ncols; col++) {
+            int index = col - 1 + (row - 1) * ncols;
+            struct termbuf_char c1 = tb1->buf[index];
+            struct termbuf_char c2 = tb1->buf[index];
+            int len1 = c1.flags & FLAG_LENGTH_MASK;
+            int len2 = c1.flags & FLAG_LENGTH_MASK;
+            CuAssertIntEquals(tc, 1, len1);
+            CuAssertIntEquals(tc, 1, len2);
+            tmp1[index] = c1.utf8_char[0];
+            tmp2[index] = c1.utf8_char[0];
+        }
+    }
+
+    CuAssertBytesEquals(tc,
+                        tmp1,
+                        tmp2,
+                        tb1->nrows * tb1->ncols);
+
+    free(tmp1);
+    free(tmp2);
+}
+
+void insert_termbuf_contents(struct termbuf *tb, const char *contents) {
+    int old_flags = tb->flags;
+    tb->flags = FLAG_AUTOWRAP_MODE;
+    while(*contents != '\0') {
+        termbuf_insert(tb, ((uint8_t *) contents), 1);
+        contents ++;
+    }
+    tb->flags = old_flags;
+}
+
+void test_buffer_resize_noop(CuTest *tc) {
+    int dummy_pty = 0;
+
+    const char *content =
+        "12345"
+        "abcde"
+        "xyzwh"
+        "ijklm";
+
+    struct termbuf tb1;
+    termbuf_initialize(4, 5, dummy_pty, &tb1);
+    insert_termbuf_contents(&tb1, content);
+
+    struct termbuf tb2;
+    termbuf_initialize(4, 5, dummy_pty, &tb2);
+    insert_termbuf_contents(&tb2, content);
+    termbuf_resize(&tb2, 4, 5);  // Resize to the same contents as before.
+
+    cu_assert_buf_equals(tc, &tb1, &tb2);
+}
+
+void test_buffer_resize_shrink(CuTest *tc) {
+    int dummy_pty = 0;
+
+    const char *content1 =
+        "123"
+        "abc";
+
+    const char *content2 =
+        "12345"
+        "abcde"
+        "xyzwh"
+        "ijklm";
+
+    struct termbuf tb1;
+    termbuf_initialize(2, 3, dummy_pty, &tb1);
+    insert_termbuf_contents(&tb1, content1);
+
+    struct termbuf tb2;
+    termbuf_initialize(4, 5, dummy_pty, &tb2);
+    insert_termbuf_contents(&tb2, content2);
+    termbuf_resize(&tb2, 2, 3);
+
+    cu_assert_buf_equals(tc, &tb1, &tb2);
+}
+
+void test_buffer_resize_grow_shrink(CuTest *tc) {
+    int dummy_pty = 0;
+
+    const char *content1 =
+        "123"
+        "abc";
+
+    const char *content2 =
+        "123"
+        "abc";
+
+    struct termbuf tb1;
+    termbuf_initialize(2, 3, dummy_pty, &tb1);
+    insert_termbuf_contents(&tb1, content1);
+
+    struct termbuf tb2;
+    termbuf_initialize(2, 3, dummy_pty, &tb2);
+    insert_termbuf_contents(&tb2, content2);
+    termbuf_resize(&tb2, 4, 5);
+    termbuf_resize(&tb2, 2, 3);
+
+    cu_assert_buf_equals(tc, &tb1, &tb2);
+}
+
+CuSuite *termbuf_test_suite() {
+    CuSuite *suite = CuSuiteNew();
+    SUITE_ADD_TEST(suite, test_buffer_resize_noop);
+    SUITE_ADD_TEST(suite, test_buffer_resize_shrink);
+    SUITE_ADD_TEST(suite, test_buffer_resize_grow_shrink);
+    return suite;
+}

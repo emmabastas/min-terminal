@@ -111,9 +111,12 @@ uint8_t ringbuf_get(struct ringbuf *rb, size_t offset) {
     return rb->buf[(rb->cursor - 1 - offset) & (rb->capacity - 1)];
 }
 
-/*
- * Unit tests for this file bellow
- */
+
+
+////////////////
+// UNIT TESTS //
+////////////////
+
 
 // Writing no data should leave the ringbuffer unaltered
 void test_ringbuf_write_empty(CuTest *tc) {
@@ -195,7 +198,6 @@ void test_ringbuf_write_wrap_around(CuTest *tc) {
 void test_ringbuf_write_capacity(CuTest *tc) {
     struct ringbuf rb;
     ringbuf_initialize(64, &rb);
-
     uint8_t *data = malloc(64);
     for (int i = 0; i < 64; i ++) {
         data[i] = i;
