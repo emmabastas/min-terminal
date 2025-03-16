@@ -451,8 +451,15 @@ void handle_x11_event() {
             rendering_calculate_sizes(window_height - 2 * BORDERPX,
                                       window_width - 2 * BORDERPX,
                                       CELL_HEIGHT,
-                                      &ncols,
-                                      &nrows);
+                                      &nrows,
+                                      &ncols);
+
+            diagnostics_type(DIAGNOSTICS_X11_EVENT);
+            diagnostics_write_string("New row:col ", -1);
+            diagnostics_write_int(nrows);
+            diagnostics_write_string(" ", -1);
+            diagnostics_write_int(ncols);
+            diagnostics_write_string("\n", -1);
 
             termbuf_resize(&tb, nrows, ncols);
 
@@ -464,7 +471,7 @@ void handle_x11_event() {
                 .ws_ypixel = 0,  // unused.
             };
 
-            int ret = ioctl(secondary_pty_fd, TIOCSWINSZ, &w);
+            int ret = ioctl(primary_pty_fd, TIOCSWINSZ, &w);
             if (ret == -1) {
                 assert(false);
             }
@@ -791,13 +798,9 @@ int main(int argc, char **argv) {
         dup2(secondary_pty_fd, 1);  // use secondary_pty_fd for STDOUT
         dup2(secondary_pty_fd, 2);  // use secondary_pty_fd for STDERR
 
-        // TODO: "Use of ioctl() makes for nonportable programs. Use the POSIX
-        //       interface described in termios(3) whenever possible."
-        //       Can we get rid of ioctl?
-
         // "Make the given terminal the controling terminal of the calling
         // process"?
-        ret = ioctl(secondary_pty_fd, TIOCSCTTY, NULL);
+        ret = ioctl(primary_pty_fd, TIOCSCTTY, NULL);
         if (ret == -1) {
             assert(false);
         }
