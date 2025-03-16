@@ -34,7 +34,7 @@ cmd=""
 [ "$ans" == "um" ] && cmd="gcc $debug_flags $linker_flags $includes $unit_test_input_files -o unit-test \
 && valgrind $memcheck_common_flags --suppressions=./tests/unit-tests-supressions.txt ./unit-test"
 
-[ "$ans" == "memcheck" ] && cmd="valgrind $memcheck_common_flag ./min-terminal"
+[ "$ans" == "memcheck" ] && cmd="valgrind $memcheck_common_flags ./min-terminal"
 
 [ "$ans" == "get esctest" ] && cmd="cd ./tests && git clone git@github.com:ThomasDickey/esctest2.git --branch master --single-branch && cd esctest2 && git checkout fb8be26032ce4d5b8e05b2302d0492296aceec70 && cd ../../"
 
