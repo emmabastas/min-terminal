@@ -592,6 +592,8 @@ int main(int argc, char **argv) {
         CWBackPixel | CWEventMask | CWColormap, // valuemask
         &win_attributes);       // attributes
 
+    XFree(visual_info);
+
     // Set window attributes
 
     // https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/wm-normal-hints.html#XSizeHints
@@ -632,6 +634,7 @@ int main(int argc, char **argv) {
                      wm_hints,      // wm_hints
                      class_hints);  // class_hints
 
+    free(progpath);
     XFree(size_hints);
     XFree(wm_hints);
     XFree(class_hints);
