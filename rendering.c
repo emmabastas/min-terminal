@@ -224,8 +224,11 @@ void rendering_calculate_sizes(int screen_height,
 
     // Now that we know the cell size we can calculate how many rows and
     // collumns will fit in the window.
-    *nrows_ret = (int) floor((float) screen_height / (float) cell_height);
-    *ncols_ret = (int) floor((float) screen_width / (float) cell_width);
+    nrows = (int) floor((float) screen_height / (float) cell_height);
+    ncols = (int) floor((float) screen_width / (float) cell_width);
+
+    *nrows_ret = nrows;
+    *ncols_ret = ncols;
 
     glUniform1i(uniform_locations.cell_width, cell_width);
     glUniform1i(uniform_locations.cell_height, cell_height);
