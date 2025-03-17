@@ -109,8 +109,8 @@ static Display *display;
 static int window;
 static int screen;
 static GLXContext glx_context;
-static int window_height;
-static int window_width;
+static unsigned int window_height;
+static unsigned int window_width;
 static const int CELL_HEIGHT = 21;
 static const int BORDERPX = 0;
 static const int INITIAL_SCREEN_WIDTH = 900;
@@ -737,11 +737,25 @@ int main(int argc, char **argv) {
                           GL_TRUE);     // enabled
 
 
-    int nrows, ncols;
     rendering_initialize(display, window, glx_context);
-    rendering_calculate_sizes(INITIAL_SCREEN_HEIGHT,
-                              INITIAL_SCREEN_WIDTH,
-                              CELL_HEIGHT, &nrows, &ncols);
+
+    union { int i; unsigned int ui; Window w; } dummy;
+    XGetGeometry(display,
+                 window,
+                 &dummy.w,    // root_return
+                 &dummy.i,    // x_return
+                 &dummy.i,    // y_return
+                 &window_width,
+                 &window_height,
+                 &dummy.ui,   // border_width_return
+                 &dummy.ui);  // depth:return
+
+    int nrows, ncols;
+    rendering_calculate_sizes(window_height - 2 * BORDERPX,
+                              window_width - 2 * BORDERPX,
+                              CELL_HEIGHT,
+                              &nrows,
+                              &ncols);
 
     // Make an input context, used later to decode keypresses
 
