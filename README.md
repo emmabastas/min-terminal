@@ -12,7 +12,7 @@ These are not in any particular order.
 
 - [X] Use `OpenGL` instead of `Xlib` for rendering.
 - [ ] Show Cursor.
-- [ ] Resizeable window.
+- [X] Resizeable window.
 - [ ] Limited ligature support.
 - [ ] Cache rasterized glyphs on the GPU.
 - [ ] Use something other than [`stb_truetype.h`](https://github.com/nothings/stb/blob/master/stb_truetype.h) for rasteriziing glyphs (security issues).
