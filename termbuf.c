@@ -1042,9 +1042,34 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
         // Select conformance level (DECSCL)
         // https://vt100.net/docs/vt510-rm/DECSCL.html
+        // https://terminalguide.namepad.de/seq/csi_sp_t_quote/
+        // https://vt100.net/docs/vt510-rm/chapter4.html
         if (ch == 'p') {
-            // TODO
-            assert(false);
+            // This makes no sense but I swear it's what the manuals say.
+
+            bool vt100;
+            bool eight_bit;
+
+            if (len < 1 || p1 == 60 || p1 == 61) {
+                vt100 = true;
+            } else if (p1 == 62 || p1 == 63 || p1 == 64) {
+                vt100 = false;
+            } else {
+                // Invalid paramter.
+                assert(false);
+            }
+
+            if (len < 2 || p2 == 0 || p2 == 2) {
+                eight_bit = true;
+            } else if (p2 == 1) {
+                eight_bit = false;
+            } else {
+                // Invalid parameter.
+                assert(false);
+            }
+
+            // TODO: Do something with this.
+            return;
         }
 
         // Select character attributes (DECSCA)
