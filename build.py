@@ -141,7 +141,8 @@ def get_esctest():
               cwd="./tests/esctest2/")
 
 def run_esctest():
-    run_shell(["./min-terminal", "-e", "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm"])
+    run_shell(["./min-terminal", "-e",
+               "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm --options allowC1Printable disableWideChars"])
 
 def memcheck_wrap(args):
     if memcheck:
