@@ -32,8 +32,14 @@
               xorg.libX11
               libGL.dev
               harfbuzz
-              (pkgs.python3.withPackages (python-pkgs: [
-                python-pkgs.cogapp
+              (pkgs.python3.withPackages (python-pkgs: with python-pkgs; [
+                cogapp
+                python-lsp-server
+                rope # autocomplete
+                pyflakes # syntax checking
+                pycodestyle # style linting
+                pylsp-mypy # type checking
+                future # solves https://github.com/tomv564/pyls-mypy/issues/37
               ]))
             ];
           };
