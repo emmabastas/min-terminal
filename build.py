@@ -49,7 +49,8 @@ memcheck_common_flags = [
     "--tool=memcheck",
     "--leak-check=full",
     "--show-leak-kinds=definite,indirect,possible",
-    "--track-origins=yes"
+    "--track-origins=yes",
+    "--suppressions=./tests/unit-tests-supressions.txt",
 ]
 
 def main():
@@ -62,6 +63,8 @@ def main():
         "m": ("Toggle running with memcheck", toggle_memcheck),
         "ud": ("Run unit tests with debug settings", unit_debug),
         "up": ("Run unit tests with production settings", unit_prod),
+        "get esctest": ("Download esctest suite", get_esctest),
+        "esctest": ("Run esctest suite", run_esctest),
         "q": ("Quit", lambda: quit(0))
     }
 
@@ -79,7 +82,7 @@ def main():
 def print_options(map):
     print("----------------")
     for (key, (description, _)) in map.items():
-        print(f"{key:>8} {description}")
+        print(f"{key:>12} {description}")
     print("----------------")
 
 def print_status():
@@ -90,12 +93,7 @@ def print_status():
     print(f"=== shell: {shell_s} {memcheck_s} ===")
 
 def runit():
-    args = []
-
-    if memcheck:
-        args += ["valgrind", *memcheck_common_flags]
-
-    args += ["./min-terminal"]
+    args = memcheck_wrap(["./min-terminal"])
 
     if shell == "bash":
         args += ["-e", "/run/current-system/sw/bin/bash"]
@@ -124,37 +122,38 @@ def unit_debug():
     run_shell(["gcc", *debug_flags, *linker_flags, *includes,
                *unit_test_input_files, "-o", "unit-test"])
 
-    args = []
-    if memcheck:
-        args += ["valgrind", *memcheck_common_flags,
-                 "--suppressions=./tests/unit-tests-supressions.txt",
-                 "./unit-test"]
-    args += ["./unit-test"]
-
-    run_shell(args)
+    run_shell(memcheck_wrap(["./unit-test"]))
 
 def unit_prod():
     run_shell(["gcc", *production_flags, *linker_flags, *includes,
                *unit_test_input_files, "-o", "unit-test"])
 
-    args = []
-    if memcheck:
-        args += ["valgrind", *memcheck_common_flags,
-                 "--suppressions=./tests/unit-tests-supressions.txt",
-                 "./unit-test"]
-    args += ["./unit-test"]
-
-    run_shell(args)
+    run_shell(memcheck_wrap(["./unit-test"]))
 
 def toggle_memcheck():
     global memcheck
     memcheck = not memcheck
 
-def run_shell(args):
+def get_esctest():
+    run_shell(["git", "clone", "git@github.com:ThomasDickey/esctest2.git",
+               "--branch", "master", "--single-branch"], cwd="./tests/")
+    run_shell(["git", "checkout", "fb8be26032ce4d5b8e05b2302d0492296aceec70"],
+              cwd="./tests/esctest2/")
+
+def run_esctest():
+    run_shell(["./min-terminal", "-e", "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm"])
+
+def memcheck_wrap(args):
+    if memcheck:
+        return ["valgrind", *memcheck_common_flags, *args]
+    else:
+        return args
+
+def run_shell(args, **kwargs):
     print()
     print(">  " + " ".join(args))
     print()
-    subprocess.run(args)
+    subprocess.run(args, **kwargs)
 
 if __name__ == "__main__":
     main()
