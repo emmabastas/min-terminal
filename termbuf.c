@@ -1230,6 +1230,51 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         assert(false);
     }
 
+    // Select Set-Up Language (DECSSL)
+    // https://vt100.net/docs/vt510-rm/DECSSL.html
+    if (ch == 'p') { /* TODO */ assert(false); }
+    // Load LEDs (DECLL)
+    // https://vt100.net/docs/vt510-rm/DECLL.html
+    if (ch == 'q') { /* TODO */ assert(false); }
+    // Set Top and Bottom Margins (DECSTBM)
+    // https://vt100.net/docs/vt510-rm/DECSTBM.html
+    if (ch == 'r') { /* TODO */ assert(false); }
+    // Set Left and Right Margins (DECSLRM)
+    // https://vt100.net/docs/vt510-rm/DECSLRM.html
+    if (ch == 's') { /* TODO */ assert(false); }
+    // Set Lines per Physical Page (DECSLPP)
+    // https://vt100.net/docs/vt510-rm/DECSLPP.html
+    if (ch == 't') { /* TODO */ assert(false); }
+    // Set Horizontal Tabulation Stops (DECSHTS)
+    // https://vt100.net/docs/vt510-rm/DECSHTS.html
+    if (ch == 'u') { /* TODO */ assert(false); }
+    // Set Vertical Tabulation Stops (DECSVTS)
+    // https://vt100.net/docs/vt510-rm/DECSVTS.html
+    if (ch == 'v') { /* TODO */ assert(false); }
+    // Set Horizontal Pitch (DECSHORP)
+    // https://vt100.net/docs/vt510-rm/DECSHORP.html
+    if (ch == 'w') { /* TODO */ assert(false); }
+    // Request Terminal Parameters (DECREQTPARM)
+    // https://vt100.net/docs/vt510-rm/DECREQTPARM.html
+    if (ch == 'x') { /* TODO */ assert(false); }
+    // Invoke Confidence Test (DECTST)
+    // https://vt100.net/docs/vt510-rm/DECTST.html
+    if (ch == 'y') { /* TODO */ assert(false); }
+    // Set Vertical Pitch (DECVERP)
+    // https://vt100.net/docs/vt510-rm/DECVERP.html
+    if (ch == 'z') { /* TODO */ assert(false); }
+    // ???
+    if (ch == '{') { /* TODO */ assert(false); }
+    // Select Transmit Termination Character (DECTTC)
+    // https://vt100.net/docs/vt510-rm/DECTTC.html
+    if (ch == '|') { /* TODO */ assert(false); }
+    // Set Protected Field Attributes (DECPRO)
+    // https://vt100.net/docs/vt510-rm/DECPRO.html
+    if (ch == '}') { /* TODO */ assert(false); }
+    // Function Key (DECFNK)
+    // https://vt100.net/docs/vt510-rm/DECFNK.htm
+    if (ch == '~') { /* TODO */ assert(false); }
+
     // ESC n A, CUU, move cursor up
     if (ch == 'A' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
