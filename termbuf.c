@@ -1244,7 +1244,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     if (ch == 's') { /* TODO */ assert(false); }
     // Set Lines per Physical Page (DECSLPP)
     // https://vt100.net/docs/vt510-rm/DECSLPP.html
-    if (ch == 't') { /* TODO */ assert(false); }
+    if (ch == 't' && len <= 1) { /* TODO */ assert(false); }
     // Set Horizontal Tabulation Stops (DECSHTS)
     // https://vt100.net/docs/vt510-rm/DECSHTS.html
     if (ch == 'u') { /* TODO */ assert(false); }
@@ -1274,6 +1274,26 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // Function Key (DECFNK)
     // https://vt100.net/docs/vt510-rm/DECFNK.htm
     if (ch == '~') { /* TODO */ assert(false); }
+
+
+    // Window manipulation (XTWINOPS)
+    // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps;Ps;Ps-t.1EB0
+    // How to tell when to use this vs DECSLPP?
+    if (ch == 't' && 1 <= len && len <= 3) {
+        if (p1 == 8) {
+            uint16_t nnrows = len < 2 ? tb->nrows : p2;
+            uint16_t nncols = len < 3 ? tb->ncols : p3;
+
+            termbuf_resize(tb, nnrows, nncols);
+
+            // TODO: Resize the actual window too.
+
+            return;
+        }
+
+        unknown_csi(tb, ch);
+        assert(false);
+    }
 
     // ESC n A, CUU, move cursor up
     if (ch == 'A' && (len == 0 || len == 1)) {
