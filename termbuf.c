@@ -1036,6 +1036,84 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // Intermediate is !
+    // https://vt100.net/emu/ctrlseq_dec.html
+    if (intermediate == '!') {
+        // DECSTR Soft Terminal Reset
+        // https://vt100.net/docs/vt510-rm/DECSTR.html
+        if (ch == 'p') {
+            tb->flags &= ~FLAG_HIDE_CURSOR;
+            // TODO: IRM.
+            // TODO: DECOM.
+            tb->flags &= ~FLAG_AUTOWRAP_MODE;
+            // TODO: DECNRCM.
+            // TODO: KAM.
+            // TODO: DECNKM.
+            tb->flags &= ~FLAG_APPLICATION_CURSOR;
+            // TODO: DECSTBM.
+            // TODO: G0, G1, G2, G3, GL, GR
+            tb->flags &= ~ (FLAG_BOLD | FLAG_FAINT | FLAG_ITALIC
+                            | FLAG_UNDERLINE | FLAG_STRIKEOUT
+                            | FLAG_INVERT_COLORS);
+            tb->fg_color_r = four_bit_colors[15 * 3];
+            tb->fg_color_g = four_bit_colors[15 * 3 + 1];
+            tb->fg_color_b = four_bit_colors[15 * 3 + 2];
+            tb->bg_color_r = four_bit_colors[0];
+            tb->bg_color_g = four_bit_colors[1];
+            tb->bg_color_b = four_bit_colors[2];
+            // TODO: DECSCA
+            // TODO: DECSC
+            // TODO: DECAUPSS
+            // TODO: DECSASD
+            // TODO: DECKPM
+            // TODO: DECRLM
+            // TODO: DECPCTERM
+
+            return;
+        }
+        // decVKPPI Print Partial Image
+        // https://vt100.net/docs/vt510-rm/decVKPPI.html
+        if (ch == 'q') { /* TODO */ assert(false); }
+        // DECNVR Nonvolatile RAM Feature Settings
+        // https://vt100.net/docs/vt510-rm/DECNVR.html
+        if (ch == 'r') { /* TODO */ assert(false); }
+        // DECFIL Right Justification
+        // https://vt100.net/docs/vt510-rm/DECFIL.html
+        if (ch == 's') { /* TODO */ assert(false); }
+        // ???
+        if (ch == 't') { assert(false); }
+        // DECFNVR Loading Factory NVR Settings
+        // https://vt100.net/docs/vt510-rm/DECFNVR.html
+        if (ch == 'u') { /* TODO */ assert(false); }
+        // DECASFC Automatic Sheet Feeder Control
+        //     s://vt100.net/docs/vt510-rm/Automatic.html
+        if (ch == 'v') { /* TODO */ assert(false); }
+        // DECUND Programmable Underline Character
+        // https://vt100.net/docs/vt510-rm/DECUND.html
+        if (ch == 'w') { /* TODO */ assert(false); }
+        // DECPTS Printwheel Table Select
+        // https://vt100.net/docs/vt510-rm/DECPTS.html
+        if (ch == 'x') { /* TODO */ assert(false); }
+        // DECSS Set Space Size
+        // https://vt100.net/docs/vt510-rm/DECSS.html
+        if (ch == 'y') { /* TODO */ assert(false); }
+        // ???
+        if (ch == 'z') { assert(false); }
+        // ???
+        if (ch == '{') { assert(false); }
+        // DECVEC Draw Vector
+        // https://vt100.net/docs/vt510-rm/DECVEC.html
+        if (ch == '|') { /* TODO */ assert(false); }
+        // DECFIN Document Finishing
+        // https://vt100.net/docs/vt510-rm/DECFIN.html
+        if (ch == '}') { /* TODO */ assert(false); }
+        // ???
+        if (ch == '~') { assert(false); }
+
+        unknown_csi(tb, ch);
+        assert(false);
+    }
+
     // Itermediate is "
     // https://vt100.net/emu/ctrlseq_dec.html
     if (intermediate == '"') {
@@ -1331,7 +1409,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // We got a so called select graphics rendition (SRG)
+    // We got a so called select graphics rendition (SGR)
     // https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
     if (ch == 'm') {
         // ESC[m, or ESC[0m. Reset all graphical rendition flags.
@@ -1764,7 +1842,8 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         // this.
         return;
     case 25:
-        // ESC[?25h Show/hide the cursor.
+        // ESC[?25h Show/hide the cursor (DECTCEM).
+        // https://vt100.net/docs/vt510-rm/DECTCEM.html
         flag = FLAG_HIDE_CURSOR;
         break;
     case 1049:

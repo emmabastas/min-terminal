@@ -30,6 +30,8 @@
 #define FLAG_STRIKEOUT 128             // 0b0000000010000000
 // These are only used by the `struct termbuf`
 #define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
+// DECTCEM
+// https://vt100.net/docs/vt510-rm/DECTCEM.html
 #define FLAG_HIDE_CURSOR 512           // 0b0000001000000000
 // This flag determines wheter or not text should wrap to the next line if there
 // is no space on the current line. This flag is set and unset with ESC[?7h and
@@ -42,12 +44,6 @@
 // This flag determines what sequences the terminal should send to the shell
 // when arrow keys are pressed (TODO: In what way), the sequences to set and
 // unset this flag is ESC[?1h and ESC[?1l
-// See: https://vt100.net/docs/vt510-rm/DECCKM.html
-
-// It is a little unclear to me what this does but it influences what/how the
-// terminal sends special escape sequences to the shell when special keys (like
-// Ctrl, Shift, Left arrow, etc) are pressed
-// This flag commes into play inside  `handle_x11_keypress` in `min-terminal.c`.
 // See: https://vt100.net/docs/vt510-rm/DECCKM.html
 #define FLAG_APPLICATION_CURSOR 4096  // 0b0001000000000000
 // See `FLAG_APPLICATION_CURSOR` for some comments.
