@@ -1911,11 +1911,21 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         // https://vt100.net/docs/vt510-rm/DECTCEM.html
         flag = FLAG_HIDE_CURSOR;
         break;
+    case 47:
+        // same as 1047??
+        // TODO
+        break;
+    case 1047:
+        // Use normal/alternate screen buffer.
+        // TODO
+        break;
+    case 1048:
+        // Save/restore cursor as in DECSC/DECRC.
+        // TODO
+        break;
     case 1049:
-        // ESC[?1049h enable alternative screen buffer.
-        // TODO: handle this.
-        printf("TODO handle ESC[?1049h / ESC[?1049l\n");
-        return;
+        // Combination of case 1047 and 1048 above.
+        break;
     case 2004:
         // ESC[?2004h "Turn on bracketed paste mode."
         flag = FLAG_BRACKETED_PASTE_MODE;
