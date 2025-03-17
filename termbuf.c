@@ -18,6 +18,7 @@
 
 
 
+void unknown_csi(struct termbuf *tb, char final_byte);
 void csi_dec_private_mode_set(struct termbuf *tb, char final_byte);
 
 
@@ -1012,6 +1013,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
     uint8_t ic  = data->initial_char;
+    uint8_t intermediate = data->intermediate;
 
     uint8_t len = data->current_param + 1;
     if (data->params[data->current_param] == (uint16_t) -1) {
@@ -1034,10 +1036,96 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    assert(ic == '\0');
+    // Itermediate is "
+    // https://vt100.net/emu/ctrlseq_dec.html
+    if (intermediate == '"') {
 
-    // Now commes a big task of figuring out what the parsed ANSI escape sequnce
-    // means.
+        // Select conformance level (DECSCL)
+        // https://vt100.net/docs/vt510-rm/DECSCL.html
+        if (ch == 'p') {
+            // TODO
+            assert(false);
+        }
+
+        // Select character attributes (DECSCA)
+        // https://vt100.net/docs/vt510-rm/DECSCA.html
+        if (ch == 'q') {
+            // TODO
+            assert(false);
+        }
+
+        // ???
+        if (ch == 'r') { assert(false); }
+
+        // Page width alignment (DECPWA)
+        // https://vt100.net/docs/vt510-rm/DECPWA.html
+        if (ch == 's') {
+            // TODO
+            assert(false);
+        }
+
+        // Select refresh rate (DECSRFR)
+        // https://vt100.net/docs/vt510-rm/DECSRFR.html
+        if (ch == 't') {
+            // TODO
+            assert(false);
+        }
+
+        // Set transmit rate limit (DECSTRL)
+        // https://vt100.net/docs/vt510-rm/DECSTRL.html
+        if (ch == 'u') {
+            // TODO
+            assert(false);
+        }
+
+        // Request device extent (DECRQDE)
+        // https://vt100.net/docs/vt510-rm/DECRQDE.html
+        if (ch == 'v') {
+            // TODO
+            assert(false);
+        }
+
+        // Report device extent (DECRPDE)
+        // https://vt100.net/docs/vt510-rm/DECRPDE.html
+        if (ch == 'w') {
+            // TODO
+            assert(false);
+        }
+
+        // Font configuration request (DECFCR)
+        // https://vt100.net/docs/vt510-rm/DECFCR.html
+        if (ch == 'x') {
+            // TODO
+            assert(false);
+        }
+
+        // ???
+        if (ch == 'y') { assert(false); }
+
+        // Select density (DECDEN)
+        // https://vt100.net/docs/vt510-rm/DECDEN.html
+        if (ch == 'z') {
+            // TODO
+            assert(false);
+        }
+
+        // Request font status (DECRFS)
+        // https://vt100.net/docs/vt510-rm/DECRFS.html
+        if (ch == '{') {
+            // TODO
+            assert(false);
+        }
+
+        // ???
+        if (ch == '|') { assert(false); }
+        // ???
+        if (ch == '}') { assert(false); }
+        // ???
+        if (ch == '~') { assert(false); }
+
+        unknown_csi(tb, ch);
+        assert(false);
+    }
 
     // ESC n A, CUU, move cursor up
     if (ch == 'A' && (len == 0 || len == 1)) {
@@ -1602,25 +1690,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // It's an escape sequence unknown to us.
-    printf("\n"
-           "Got an unknown ANSI escape sequence with:\n"
-           "    ch            : '%c' (decimal %d).\n"
-           "    initial_char  : '%c' (decimal %d).\n"
-           "    current_param : %d.\n"
-           "    len           : %d.\n"
-           "    param1        : %d.\n"
-           "    param2        : %d.\n"
-           "    param3        : %d.\n"
-           "    param4        : %d.\n"
-           "    param5        : %d.\n"
-           "    intermediate  : '%c' (decimal %d).\n",
-           ch, ch,
-           ic, ic,
-           data->current_param,
-           len,
-           p1, p2, p3, p4, p5,
-           data->intermediate, data->intermediate);
+    unknown_csi(tb, ch);
     assert(false);
 }
 
@@ -1699,7 +1769,44 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         return;
     }
 
+    unknown_csi(tb, final_byte);
     assert(false);
+}
+
+void unknown_csi(struct termbuf *tb, char ch) {
+    struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+    uint8_t ic  = data->initial_char;
+    uint8_t intermediate = data->intermediate;
+
+    uint8_t len = data->current_param + 1;
+    if (data->params[data->current_param] == (uint16_t) -1) {
+        len --;
+    }
+
+    uint16_t p1 = data->params[0];
+    uint16_t p2 = data->params[1];
+    uint16_t p3 = data->params[2];
+    uint16_t p4 = data->params[3];
+    uint16_t p5 = data->params[4];
+
+    printf("\n"
+           "Got an unknown ANSI escape sequence with:\n"
+           "    ch            : '%c' (decimal %d).\n"
+           "    initial_char  : '%c' (decimal %d).\n"
+           "    current_param : %d.\n"
+           "    len           : %d.\n"
+           "    param1        : %d.\n"
+           "    param2        : %d.\n"
+           "    param3        : %d.\n"
+           "    param4        : %d.\n"
+           "    param5        : %d.\n"
+           "    intermediate  : '%c' (decimal %d).\n",
+           ch, ch,
+           ic, ic,
+           data->current_param,
+           len,
+           p1, p2, p3, p4, p5,
+           data->intermediate, data->intermediate);
 }
 
 void action_osc_chomp_start(struct termbuf *tb, char ch) {
