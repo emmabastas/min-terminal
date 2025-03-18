@@ -11,7 +11,7 @@ That said, if you wanna hack on this I'd be happy to help you with your own fork
 These are not in any particular order.
 
 - [X] Use `OpenGL` instead of `Xlib` for rendering.
-- [ ] Show Cursor.
+- [X] Show Cursor.
 - [X] Resizeable window.
 - [ ] Limited ligature support.
 - [ ] Cache rasterized glyphs on the GPU.
@@ -19,7 +19,7 @@ These are not in any particular order.
 - [ ] Pass the [vttest](https://www.invisible-island.net/vttest/) suite (except for blinking text, I don't care about that).
 - [ ] Pass the [esctest](https://github.com/ThomasDickey/esctest2) suite.
 - [ ] Some sort of dialog for when errors and unknown escape sequences occur.
-- [ ] Vim keybindings built-in.
+- [ ] Vim-style keybindings built-in.
 - [ ] Copy-paste.
 - [ ] Scrollback buffer.
 - [ ] No "still reachable" memory leaks.

@@ -7,6 +7,9 @@
 
 #include "./CuTest.h"
 
+extern const uint8_t four_bit_colors[16 * 3];
+extern const uint8_t eight_bit_colors[256 * 3];
+
 // These flags are used in two places
 // 1) Each terminal cell (termbuf_char) has a flags field that represents it's
 //    apperance.

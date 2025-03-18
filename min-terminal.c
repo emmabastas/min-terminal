@@ -156,6 +156,16 @@ void render() {
         }
     }
 
+    struct termbuf_char c = tb.buf[tb.col - 1 + (tb.row - 1) * tb.ncols];
+    c.fg_color_r = 0;
+    c.fg_color_g = 0;
+    c.fg_color_b = 0;
+    c.bg_color_r = four_bit_colors[8 * 3];
+    c.bg_color_g = four_bit_colors[8 * 3 + 1];
+    c.bg_color_b = four_bit_colors[8 * 3 + 2];
+
+    rendering_render_cell(0, 0, tb.row, tb.col, &c);
+
     // Use this instead if doing double buffering.
     // glXSwapBuffers(display, window);
     glFlush();
