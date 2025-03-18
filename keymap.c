@@ -43,8 +43,8 @@
           complexity comes in. There are two things that influence how a
           specific SYMBOL is mapped:
           1) MODIFIER KEYs.
-          2) Terminal flags. In particular the two flags FLAG_APPLICATION_CURSOR
-          and FLAG_APPLICATION_KEYPAD.
+          2) Terminal flags. In particular the two flags FLAG_DECCKM and
+          FLAG_DECKPAM.
           We encode our mappings as a list of "constraints" which is a sturct
           containing an ESCAPE SEQUENCE that should be sent if certain
           constraints are met. So when a SYMBOL is typed we run through this
@@ -92,15 +92,14 @@ struct constraint_s {
     // bitsets ANY_MOD and NO_MOD defined bellow, there's also a
     // IGNORED_MODIFIERS which influences what constitutes a match.
     uint c1;
-    // This constraint concerns the two terminal flags FLAG_APPLICATION_CURSOR
-    // and FLAG_APPLICATION_KEYPAD, and whether or not numlock is activated on
-    // the keyboard (indicated by X11's Mod2Mask modifier key). If you want to
-    // understand the specifics this this encoding encoding you can check the
-    // code, but all you need to know is that there are special constants
-    // defined bellow, for instance `_YN` encodes that this constraint is met
-    // irrespective of the value of FLAG_APPLICATION_KEYPAD, but
-    // FLAG_APPLICATION_CURSOR has to be set and numlock cannot be
-    // activated.
+    // This constraint concerns the two terminal flags FLAG_DECCKM and
+    // FLAG_DECKPAM, and whether or not numlock is activated on the keyboard
+    // (indicated by X11's Mod2Mask modifier key). If you want to understand the
+    // specifics this this encoding encoding you can check the code, but all you
+    // need to know is that there are special constants defined bellow, for
+    // instance `_YN` encodes that this constraint is met irrespective of the
+    // value of FLAG_DECCKM, but FLAG_DECKPAM has to be set and numlock cannot
+    // be activated.
     uint8_t c2;
     // The escape sequence to map the symbol to.
     char    *escape_sequence;
@@ -129,7 +128,7 @@ bool match_c2(struct constraint_s constraint, XKeyPressedEvent event) {
       The c1 constraint is encoded in a byte where the 6 least significant bits
       are all that matters.
 
-      |  appkey   | appcursor | numlock  |
+      |  DECKPAM  |  DECCKM   | numlock  |
       | Yes | No  | Yes | No  | Yes | No |
       |  32   16     8    4      2    1  |
 
@@ -139,8 +138,8 @@ bool match_c2(struct constraint_s constraint, XKeyPressedEvent event) {
       , ___ => 32 | 16 | 8 | 4 | 2 | 1
     */
 
-    uint actual = (tb->flags & FLAG_APPLICATION_KEYPAD) ? 32 : 16
-        | (tb->flags & FLAG_APPLICATION_CURSOR) ? 8 : 4
+    uint actual = (tb->flags & FLAG_DECKPAM) ? 32 : 16
+        | (tb->flags & FLAG_DECCKM) ? 8 : 4
         | (event.state & Mod2Mask) ? 2 : 1;
 
     return (constraint.c2 & actual) == actual;

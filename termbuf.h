@@ -33,25 +33,23 @@ extern const uint8_t eight_bit_colors[256 * 3];
 #define FLAG_STRIKEOUT 128             // 0b0000000010000000
 // These are only used by the `struct termbuf`
 #define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
-// DECTCEM
+// Hide/show the cursor.
 // https://vt100.net/docs/vt510-rm/DECTCEM.html
-#define FLAG_HIDE_CURSOR 512           // 0b0000001000000000
+#define FLAG_DECTCEM 512               // 0b0000001000000000
 // This flag determines wheter or not text should wrap to the next line if there
-// is no space on the current line. This flag is set and unset with ESC[?7h and
-// ESC[?7l
+// is no space on the current line.
 // see: https://vt100.net/docs/vt510-rm/DECAWM.html
-#define FLAG_AUTOWRAP_MODE   1024      // 0b0000001000000000
+#define FLAG_DECAWM   1024             // 0b0000010000000000
 // When this flag is set new screen output has the foreground and background
 // colors swapped. Set and unset with ESC[7m resp. ESC[27m.
 #define FLAG_INVERT_COLORS   2048      // 0b0000100000000000
-// This flag determines what sequences the terminal should send to the shell
-// when arrow keys are pressed (TODO: In what way), the sequences to set and
-// unset this flag is ESC[?1h and ESC[?1l
+// DECCKM and DECKPAM influence how the terminal communicates which
+// cursor/keypad are pressed to the terminal. See ./keymap.c for how these flags
+// comme into play.
 // See: https://vt100.net/docs/vt510-rm/DECCKM.html
-#define FLAG_APPLICATION_CURSOR 4096  // 0b0001000000000000
-// See `FLAG_APPLICATION_CURSOR` for some comments.
 // See: https://vt100.net/docs/vt510-rm/DECKPAM.html
-#define FLAG_APPLICATION_KEYPAD 8192  // 0b0010000000000000
+#define FLAG_DECCKM  4096             // 0b0001000000000000
+#define FLAG_DECKPAM 8192             // 0b0010000000000000
 
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.

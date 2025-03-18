@@ -450,7 +450,7 @@ void termbuf_initialize(int nrows,
     tb_ret->ncols = ncols;
     tb_ret->row = 1;
     tb_ret->col = 1;
-    tb_ret->flags = FLAG_LENGTH_0 | FLAG_APPLICATION_KEYPAD;
+    tb_ret->flags = FLAG_LENGTH_0 | FLAG_DECKPAM;
     tb_ret->fg_color_r = 255;
     tb_ret->fg_color_g = 255;
     tb_ret->fg_color_b = 255;
@@ -476,7 +476,7 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
 
     if (tb->col > tb->ncols) {
         // Check if we should wrap text or not?
-        if ((tb->flags & FLAG_AUTOWRAP_MODE) == 0) {
+        if ((tb->flags & FLAG_DECAWM) == 0) {
             // If no wrapping we let this all be a no-op.
             // If this the way it should be? I don't know but I think it's
             // consistent with how st does it.
@@ -802,14 +802,14 @@ void action_fp(struct termbuf *tb, char ch) {
     // Application keypad (DECKPAM)
     // https://vt100.net/docs/vt510-rm/DECKPAM.html
     if (ch == '=') {
-        tb->flags |= FLAG_APPLICATION_KEYPAD;
+        tb->flags |= FLAG_DECKPAM;
         return;
     }
 
     // Normal keypad (DECKPNM), VT100
     // https://vt100.net/docs/vt510-rm/DECKPNM.html
     if (ch == '>') {
-        tb->flags &= ~FLAG_APPLICATION_KEYPAD;
+        tb->flags &= ~FLAG_DECKPAM;
         return;
     }
 
@@ -1042,14 +1042,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         // DECSTR Soft Terminal Reset
         // https://vt100.net/docs/vt510-rm/DECSTR.html
         if (ch == 'p') {
-            tb->flags &= ~FLAG_HIDE_CURSOR;
+            tb->flags &= ~FLAG_DECTCEM;
             // TODO: IRM.
             // TODO: DECOM.
-            tb->flags &= ~FLAG_AUTOWRAP_MODE;
+            tb->flags &= ~FLAG_DECAWM;
             // TODO: DECNRCM.
             // TODO: KAM.
             // TODO: DECNKM.
-            tb->flags &= ~FLAG_APPLICATION_CURSOR;
+            tb->flags &= ~FLAG_DECCKM;
             // TODO: DECSTBM.
             // TODO: G0, G1, G2, G3, GL, GR
             tb->flags &= ~ (FLAG_BOLD | FLAG_FAINT | FLAG_ITALIC
@@ -1894,12 +1894,10 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
 
     switch(data->params[0]) {
     case 1:
-        // ESC[?1h Set Cursor key mode (DECCKM)
-        flag = FLAG_APPLICATION_CURSOR;
+        flag = FLAG_DECCKM;
         break;
     case 7:
-        // ESC[?1h Set autowrap mode (DECAWM)
-        flag = FLAG_AUTOWRAP_MODE;
+        flag = FLAG_DECAWM;
         break;
     case 12:
         // Start / stop blinking cursor.
@@ -1907,9 +1905,7 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         // this.
         return;
     case 25:
-        // ESC[?25h Show/hide the cursor (DECTCEM).
-        // https://vt100.net/docs/vt510-rm/DECTCEM.html
-        flag = FLAG_HIDE_CURSOR;
+        flag = FLAG_DECTCEM;
         break;
     case 47:
         // same as 1047??
@@ -8034,7 +8030,7 @@ void cu_assert_buf_equals(CuTest *tc, struct termbuf *tb1, struct termbuf *tb2)
 
 void insert_termbuf_contents(struct termbuf *tb, const char *contents) {
     int old_flags = tb->flags;
-    tb->flags = FLAG_AUTOWRAP_MODE;
+    tb->flags = FLAG_DECAWM;
     while(*contents != '\0') {
         termbuf_insert(tb, ((uint8_t *) contents), 1);
         contents ++;
