@@ -95,6 +95,7 @@
 #include <glad/gl.h>
 #include <glad/glx.h>
 
+#include "./min-terminal.h"
 #include "./rendering.h"
 #include "./ringbuf.h"
 #include "./termbuf.h"
@@ -128,6 +129,9 @@ static pid_t shell_pid;       // The PID of the shell process.
 // doc comment for rationale.
 static int event_loop_self_pipes[2];
 
+// The number of rows that the user has scrolled into the scrollback buffer.
+static int scroll_position = 0;
+
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
 #endif
@@ -147,13 +151,67 @@ void render() {
     const int cell_width = 18;
     const int cell_height = 22;
 
-    for (int row = 1; row <= tb.nrows; row ++) {
+    /*
+                      Scrollback buffer
+         |                                         |     .
+         |                                         |     .
+         |                                         |     7
+         |                                         |     6
+         |╭───────────────────────────────────────╮|     5
+         |│                                       │|     4
+         |│                                       │|     3
+         |│                                       │|     2
+         |│                                       │|     1
+         +-----------------------------------------+     1
+         |│                                       │|     2
+         |│                                       │|     3
+         |│                                       │|     4
+         |╰───────────────────────────────────────╯|     5
+         |                                         |     6
+         |                                         |     7
+         |                                         |     8
+         |                                         |     9
+         +-----------------------------------------+
+                     Terminal buffer
+
+         nrows = 9
+         scroll_position = 5
+
+         We want to show:
+             - first 5 lines of scrollback buffer.
+             - first 3 lines of terminal buffer.
+
+         i.e.
+             - first `scroll_position` lines of scrollback buffer
+             - first `nrows - scroll_position - 1` = `9 - 5 - 1` = `3` lines of
+               scrollback buffer.
+     */
+
+    int row_on_screen = 1;
+
+    for (int row = 1; row <= scroll_position; row ++) {
+        for (int col = 1; col <= tb.ncols; col ++) {
+            struct termbuf_char c = {
+                .flags = FLAG_LENGTH_0,
+                .bg_color_r = 255,
+                .bg_color_g = 0,
+                .bg_color_b = 0,
+            };
+
+            //rendering_render_cell(0, 0, row, col, c);
+            rendering_render_cell(0, 0, row, col, &c);
+        }
+        row_on_screen ++;
+    }
+
+    for (int row = 1; row <= tb.nrows - scroll_position; row ++) {
         for (int col = 1; col <= tb.ncols; col ++) {
             struct termbuf_char *c =
                 tb.buf + (row - 1) * tb.ncols + col - 1;
 
-            rendering_render_cell(0, 0, row, col, c);
+            rendering_render_cell(0, 0, row_on_screen, col, c);
         }
+        row_on_screen ++;
     }
 
     struct termbuf_char c = tb.buf[tb.col - 1 + (tb.row - 1) * tb.ncols];
@@ -423,7 +481,7 @@ void handle_x11_event() {
         }
 
         if (event.type == KeyPress) {
-            handle_x11_keypress(event.xkey);
+            keymap_handle_x11_keypress(event.xkey);
             continue;
         }
 
@@ -535,6 +593,20 @@ void handle_x11_event() {
                util_xevent_to_string(event.type));
         assert(false);
     }
+}
+
+void min_terminal_scroll_forward() {
+    scroll_position -= 6;
+    if (scroll_position < 0) {
+        scroll_position = 0;
+    }
+    render();
+}
+
+void min_terminal_scroll_backward() {
+    scroll_position += 6;
+    // TODO: Dont scroll too far.
+    render();
 }
 
 int main(int argc, char **argv) {

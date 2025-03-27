@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <X11/Xlib.h>
 
+#include "./ringbuf.h"
+
 #include "./CuTest.h"
 
 extern const uint8_t four_bit_colors[16 * 3];
@@ -147,6 +149,8 @@ struct termbuf {
     enum  parser_state p_state;
     union parser_data  p_data;
     struct termbuf_char *buf;
+    // The scrollback buffer
+    struct ringbuf scrollback;
 };
 
 void termbuf_initialize(int nrows,

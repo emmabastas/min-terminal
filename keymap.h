@@ -8,6 +8,6 @@
 void keymap_initialize(struct termbuf *tb,
                        XIC input_context,
                        int primary_pty_fd);
-void handle_x11_keypress(XKeyPressedEvent event);
+void keymap_handle_x11_keypress(XKeyPressedEvent event);
 
 #endif /* INCLUDED_KEYMAP_H */

@@ -67,6 +67,7 @@
 #define XK_XKB_KEYS    // we want.
 #include <X11/keysymdef.h>
 
+#include "./min-terminal.h"
 #include "./util.h"
 
 
@@ -145,7 +146,7 @@ bool match_c2(struct constraint_s constraint, XKeyPressedEvent event) {
     return (constraint.c2 & actual) == actual;
 }
 
-void handle_x11_keypress(XKeyPressedEvent event) {
+void keymap_handle_x11_keypress(XKeyPressedEvent event) {
     char buf[5];
     KeySym keysym = NoSymbol;
     Status status;
@@ -178,6 +179,17 @@ void handle_x11_keypress(XKeyPressedEvent event) {
         printf("\n\x1B[36m> Got key '");
         print_escape_non_printable(buf, len);
         printf("\x1B[36m' from x11.\x1B[0m\n");
+
+        if (len == 1 && buf[0] == 6) {
+            min_terminal_scroll_forward();
+            return;
+        }
+
+        if (len == 1 && buf[0] == 2) {
+            min_terminal_scroll_backward();
+            return;
+        }
+
         int did_write = write(primary_pty_fd, buf, len);
         if (did_write == -1) {
             assert(false);

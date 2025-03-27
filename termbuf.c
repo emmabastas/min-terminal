@@ -468,6 +468,8 @@ void termbuf_initialize(int nrows,
     if (tb_ret->buf == NULL) {
         assert(false);
     }
+
+    ringbuf_initialize(RINGBUF_CAPACITY_1KiB, &tb_ret->scrollback);
 }
 
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
@@ -520,9 +522,11 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
 }
 
 void termbuf_shift(struct termbuf *tb) {
-    // TODO: push into scrollback buffer
-    // TODO: Implement a ring buffer to get rid of memcpy's
     size_t bytes_per_row = tb->ncols * sizeof(struct termbuf_char);
+
+    // Copy the top line in the buffer into the scrollback buffer
+    ringbuf_write(&tb->scrollback, (uint8_t *) tb->buf, bytes_per_row);
+
     memmove(tb->buf,
             tb->buf + tb->ncols,
             (tb->nrows - 1) * bytes_per_row);

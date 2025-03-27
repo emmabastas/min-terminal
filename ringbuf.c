@@ -21,32 +21,32 @@ size_t max(size_t x, size_t y) {
     return y;
 }
 
-void ringbuf_initialize(size_t capacity, struct ringbuf *rb_ret) {
-    assert(capacity == 1 << 2
-           || capacity == 1 << 3
-           || capacity == 1 << 4
-           || capacity == 1 << 5
-           || capacity == 1 << 6
-           || capacity == 1 << 7
-           || capacity == 1 << 8
-           || capacity == 1 << 9
-           || capacity == 1 << 10
-           || capacity == 1 << 11
-           || capacity == 1 << 12
-           || capacity == 1 << 13
-           || capacity == 1 << 14
-           || capacity == 1 << 15
-           || capacity == 1 << 16
-           || capacity == 1 << 17
-           || capacity == 1 << 18
-           || capacity == 1 << 19
-           || capacity == 1 << 20
-           || capacity == 1 << 21
-           || capacity == 1 << 22
-           || capacity == 1 << 23
-           || capacity == 1 << 24);
+void ringbuf_initialize(enum ringbuf_capacity cap, struct ringbuf *rb_ret) {
+    assert(cap == 1 << 2
+           || cap == 1 << 3
+           || cap == 1 << 4
+           || cap == 1 << 5
+           || cap == 1 << 6
+           || cap == 1 << 7
+           || cap == 1 << 8
+           || cap == 1 << 9
+           || cap == 1 << 10
+           || cap == 1 << 11
+           || cap == 1 << 12
+           || cap == 1 << 13
+           || cap == 1 << 14
+           || cap == 1 << 15
+           || cap == 1 << 16
+           || cap == 1 << 17
+           || cap == 1 << 18
+           || cap == 1 << 19
+           || cap == 1 << 20
+           || cap == 1 << 21
+           || cap == 1 << 22
+           || cap == 1 << 23
+           || cap == 1 << 24);
 
-    uint8_t *buf = calloc(capacity, 1);
+    uint8_t *buf = calloc(cap, 1);
     if (buf == NULL) {
         // calloc failure
         assert(false);
@@ -54,7 +54,7 @@ void ringbuf_initialize(size_t capacity, struct ringbuf *rb_ret) {
 
     rb_ret->buf = buf;
     rb_ret->cursor = 0;
-    rb_ret->capacity = capacity;
+    rb_ret->capacity = cap;
 }
 
 void ringbuf_write(struct ringbuf *rb, uint8_t *data, size_t len) {
