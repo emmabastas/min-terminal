@@ -151,6 +151,9 @@ struct termbuf {
     struct termbuf_char *buf;
     // The scrollback buffer
     struct ringbuf scrollback;
+    // The number of rows that the user has scrolled into the scrollback buffer.
+    int scroll_position;
+    size_t scroll_offset;
 };
 
 void termbuf_initialize(int nrows,
@@ -174,6 +177,11 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len);
 void termbuf_shift(struct termbuf *tb);
 
 void termbuf_resize(struct termbuf *tb, int nnrows, int nncols);
+
+void termbuf_scrollback_get_row(struct termbuf *tb,
+                                int offset,
+                                struct termbuf_char **cell_ret,
+                                int *length_ret);
 
 CuSuite *termbuf_test_suite();
 

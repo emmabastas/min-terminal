@@ -129,9 +129,6 @@ static pid_t shell_pid;       // The PID of the shell process.
 // doc comment for rationale.
 static int event_loop_self_pipes[2];
 
-// The number of rows that the user has scrolled into the scrollback buffer.
-static int scroll_position = 0;
-
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
 #endif
@@ -189,7 +186,7 @@ void render() {
 
     int row_on_screen = 1;
 
-    for (int row = 1; row <= scroll_position; row ++) {
+    for (int row = 1; row <= tb.scroll_position; row ++) {
         for (int col = 1; col <= tb.ncols; col ++) {
             struct termbuf_char c = {
                 .flags = FLAG_LENGTH_0,
@@ -204,7 +201,7 @@ void render() {
         row_on_screen ++;
     }
 
-    for (int row = 1; row <= tb.nrows - scroll_position; row ++) {
+    for (int row = 1; row <= tb.nrows - tb.scroll_position; row ++) {
         for (int col = 1; col <= tb.ncols; col ++) {
             struct termbuf_char *c =
                 tb.buf + (row - 1) * tb.ncols + col - 1;
@@ -596,15 +593,15 @@ void handle_x11_event() {
 }
 
 void min_terminal_scroll_forward() {
-    scroll_position -= 6;
-    if (scroll_position < 0) {
-        scroll_position = 0;
+    tb.scroll_position -= 6;
+    if (tb.scroll_position < 0) {
+        tb.scroll_position = 0;
     }
     render();
 }
 
 void min_terminal_scroll_backward() {
-    scroll_position += 6;
+    tb.scroll_position += 6;
     // TODO: Dont scroll too far.
     render();
 }
