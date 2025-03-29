@@ -31,11 +31,13 @@ input_files = [
 ]
 unit_test_input_files = [
     "dist/CuTest.c",
+    "min-terminal.c",
     "./tests/unit-tests.c",
     "ringbuf.c",
     "termbuf.c",
     "rendering.c",
     "keymap.c",
+    "arguments.c",
     "diagnostics.c",
     "util.c",
     "dist/glad/src/gl.c",
@@ -43,6 +45,7 @@ unit_test_input_files = [
 ]
 debug_flags = ["-g", "-Og", "-std=gnu99", "-pedantic"]
 production_flags = ["-O3", "-std=gnu99", "-pedantic"]
+unittest_flags = ["-D UNITTEST"]
 includes = ["-I", "dist/", "-I", "dist/glad/include/"]
 
 memcheck_common_flags = [
@@ -119,16 +122,16 @@ def build_prod():
          "-o", "min-terminal"])
 
 def unit_debug():
-    run_shell(["gcc", *debug_flags, *linker_flags, *includes,
-               *unit_test_input_files, "-o", "unit-test"])
+    run_shell(["gcc", *debug_flags, *linker_flags, *unittest_flags,
+               *includes, *unit_test_input_files, "-o", "./tests/unit-test"])
 
-    run_shell(memcheck_wrap(["./unit-test"]))
+    run_shell(memcheck_wrap(["./tests/unit-test"]))
 
 def unit_prod():
-    run_shell(["gcc", *production_flags, *linker_flags, *includes,
-               *unit_test_input_files, "-o", "unit-test"])
+    run_shell(["gcc", *production_flags, *linker_flags, *unittest_flags,
+               *includes, *unit_test_input_files, "-o", "tests/unit-test"])
 
-    run_shell(memcheck_wrap(["./unit-test"]))
+    run_shell(memcheck_wrap(["./tests/unit-test"]))
 
 def toggle_memcheck():
     global memcheck

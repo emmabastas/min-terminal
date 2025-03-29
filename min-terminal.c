@@ -606,6 +606,7 @@ void min_terminal_scroll_backward() {
     render();
 }
 
+#ifndef UNITTEST
 int main(int argc, char **argv) {
     diagnostics_initialize();
 
@@ -963,6 +964,7 @@ int main(int argc, char **argv) {
 
     assert(false);
 }
+#endif
 
 // https://gist.github.com/liam-middlebrook/c52b069e4be2d87a6d2f
 void gl_debug_msg_callback(GLenum source,
