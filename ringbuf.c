@@ -115,7 +115,7 @@ void ringbuf_free(struct ringbuf *rb) {
     }
 }
 
-void ringbuf_write(struct ringbuf *rb, uint8_t *data, size_t len) {
+void ringbuf_write(struct ringbuf *rb, void *data, size_t len) {
     // Say you wan't to write "Hello, World!", and the ring buffer is like
     // this:
     //
@@ -149,25 +149,25 @@ void ringbuf_write(struct ringbuf *rb, uint8_t *data, size_t len) {
     // TODO perf: use `min` and `max` througought for branchless code.
 
     if (len > rb->capacity) {
-        data = data + len - rb->capacity;
+        data = (char *)data + len - rb->capacity;
         len = rb->capacity;
     }
 
     size_t end_size = min(rb->capacity - rb->cursor, len);
     assert(rb->cursor + end_size <= rb->capacity);
     assert(end_size <= len);
-    memcpy(rb->buf + rb->cursor, data, end_size);
+    memcpy((char *)rb->buf + rb->cursor, data, end_size);
 
     size_t begining_size = len - end_size;
     assert(end_size + begining_size == len);
-    memcpy(rb->buf, data + end_size, begining_size);
+    memcpy((char *)rb->buf, (char *)data + end_size, begining_size);
 
     rb->cursor = (rb->cursor + len) & (rb->capacity - 1);
     rb->size = (rb->size + len) & (rb->capacity - 1);
 }
 
 uint8_t ringbuf_get(struct ringbuf *rb, size_t offset) {
-    return rb->buf[(rb->cursor - 1 - offset) & (rb->capacity - 1)];
+    return ((uint8_t *) rb->buf)[(rb->cursor - 1 - offset) & (rb->capacity - 1)];
 }
 
 enum offset_result ringbuf_getp(struct ringbuf *rb,
@@ -184,7 +184,7 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
         return RINGBUF_OUT_OF_BOUNDS;
     }
 
-    *data_ret = rb->buf + offset;
+    *data_ret = (char *)rb->buf + offset;
     return RINGBUF_SUCCESS;
 }
 
