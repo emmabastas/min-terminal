@@ -176,6 +176,10 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
                                 void **data_ret) {
     const long page_size = sysconf(_SC_PAGE_SIZE);
 
+    if (!rb->continous_memory) {
+        return RINGBUF_DISCONTINOUS_MEMORY;
+    }
+
     if (len > page_size) {
         return RINGBUF_TOO_LARGE;
     }
