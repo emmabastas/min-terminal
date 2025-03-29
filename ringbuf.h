@@ -3,12 +3,16 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "CuTest.h"
 
 struct ringbuf {
     uint8_t *buf;
+    uint8_t *extra;
+    bool continous_memory;
     size_t cursor;
+    size_t size;
     size_t capacity;
 };
 
@@ -32,9 +36,22 @@ enum ringbuf_capacity {
     RINGBUF_CAPACITY_64KiB = 65536,
 };
 
-void ringbuf_initialize(enum ringbuf_capacity capacity, struct ringbuf *rb_ret);
+enum offset_result {
+    RINGBUF_SUCCESS = 0,
+    RINGBUF_OUT_OF_BOUNDS = 1,
+    RINGBUF_TOO_LARGE = 2,
+};
+
+void ringbuf_initialize(enum ringbuf_capacity cap,
+                        bool continous_memory,
+                        struct ringbuf *rb_ret);
+void ringbuf_free(struct ringbuf *rb);
 void ringbuf_write(struct ringbuf *rb, uint8_t *data, size_t len);
 uint8_t ringbuf_get(struct ringbuf *rb, size_t offset);
+enum offset_result ringbuf_getp(struct ringbuf *rb,
+                                size_t offset,
+                                size_t len,
+                                void **data_ret);
 
 CuSuite *ringbuf_test_suite();
 

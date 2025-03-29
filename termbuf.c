@@ -469,7 +469,7 @@ void termbuf_initialize(int nrows,
         assert(false);
     }
 
-    ringbuf_initialize(RINGBUF_CAPACITY_1KiB, &tb_ret->scrollback);
+    ringbuf_initialize(RINGBUF_CAPACITY_1KiB, false, &tb_ret->scrollback);
 }
 
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
