@@ -53,37 +53,49 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
     if (continous_memory) {
         const long page_size = sysconf(_SC_PAGE_SIZE);
 
+        // TODO https://stackoverflow.com/questions/7335007/how-to-map-two-virtual-adresses-on-the-same-physical-memory-on-linux
+
         // align capacity uppwards to the nearest page bondary.
         size_t aligned_capacity =
             ((cap + page_size - 1) / page_size) * page_size;
 
+        int fd = memfd_create("ringbuf", 0);
+        if (fd == -1) {
+            assert(false);
+        }
+
+        int ret = ftruncate(fd, page_size);
+        if (ret == -1) {
+            assert(false);
+        }
+
         uint8_t *buf = mmap(NULL,
-                            aligned_capacity,
+                            aligned_capacity + page_size,
                             PROT_READ | PROT_WRITE,
-                            MAP_PRIVATE | MAP_ANONYMOUS,
-                            -1,
+                            MAP_SHARED,
+                            fd,
                             0);
         if (buf == MAP_FAILED) {
             assert(false);
         }
 
-        uint8_t *extra = mmap(buf,
+        uint8_t *extra = mmap(buf + aligned_capacity,
                               page_size,
                               PROT_READ | PROT_WRITE,
-                              // Acording to section: Using MAP_FIXED safely of
-                              // man 2 mmap MAP_ANONYMOUS can be considered
-                              // because we're mapping over memro that  we've
-                              // already mmap'ed.
-                              MAP_PRIVATE | MAP_ANONYMOUS | MAP_ANONYMOUS,
-                              -1,
+                              MAP_SHARED | MAP_FIXED,
+                              fd,
                               0);
-        if (buf == MAP_FAILED) {
+        if (extra == MAP_FAILED) {
+            assert(false);
+        }
+
+        ret = close(fd);
+        if (ret == -1) {
             assert(false);
         }
 
 
         rb_ret->buf = buf;
-        rb_ret->extra = extra;
         rb_ret->continous_memory = true;
         rb_ret->cursor = 0;
         rb_ret->size = 0;
@@ -96,7 +108,6 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
         }
 
         rb_ret->buf = buf;
-        rb_ret->extra = NULL;
         rb_ret->continous_memory = false;
         rb_ret->cursor = 0;
         rb_ret->size = 0;
@@ -107,11 +118,12 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
 void ringbuf_free(struct ringbuf *rb) {
     if (rb->continous_memory) {
         const long page_size = sysconf(_SC_PAGE_SIZE);
-        munmap(rb->buf, rb->capacity);
-        munmap(rb->extra, page_size);
+        int ret = munmap(rb->buf, 1);
+        if (ret == -1) {
+            assert(false);
+        }
     } else {
         free(rb->buf);
-        assert(rb->extra == NULL);
     }
 }
 
@@ -163,7 +175,11 @@ void ringbuf_write(struct ringbuf *rb, void *data, size_t len) {
     memcpy((char *)rb->buf, (char *)data + end_size, begining_size);
 
     rb->cursor = (rb->cursor + len) & (rb->capacity - 1);
-    rb->size = (rb->size + len) & (rb->capacity - 1);
+
+    rb->size += len;
+    if (rb->size > rb->capacity) {
+        rb->size = rb->capacity;
+    }
 }
 
 uint8_t ringbuf_get(struct ringbuf *rb, size_t offset) {
@@ -184,11 +200,14 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
         return RINGBUF_TOO_LARGE;
     }
 
-    if (offset + len > rb->size) {
+    if (offset > rb->size) {
         return RINGBUF_OUT_OF_BOUNDS;
     }
 
-    *data_ret = (char *)rb->buf + offset;
+    assert(len <= offset + 1);
+
+    *data_ret =
+        (char *)rb->buf + ((rb->cursor - 1 - offset) & (rb->capacity - 1));
     return RINGBUF_SUCCESS;
 }
 
@@ -354,7 +373,7 @@ void test_ringbuf_continous_memory(CuTest *tc) {
     const long page_size = sysconf(_SC_PAGE_SIZE);
 
     struct ringbuf rb;
-    ringbuf_initialize(page_size * 2, true, &rb);
+    ringbuf_initialize(page_size, true, &rb);
 
     // Fill the first `page_size - 3` bytes with 'x'
     char *data = malloc(page_size - 3);
@@ -365,19 +384,28 @@ void test_ringbuf_continous_memory(CuTest *tc) {
     ringbuf_write(&rb, (uint8_t *) "0123456789", 10);
 
     // Now we expect the ring buffer to look like this:
+    //         <-------- page-size - 10 ---------->
     // ╭──────────────────────────────────────────────╮
     // │3456789xxxxx...                     ...xxxx012│
     // ╰──────────────────────────────────────────────╯
-    //                                             ^ page_size - 3
+    //         ^ cursor                            ^ page_size - 3
     //
     // However, if we call ringbuf_getp with `offset = page_size - 3` and
     // `len = 10` it should give us a pointer to this chunk of (virtual) memory:
     // 0123456789xxxx...
 
     char *result;
-    ringbuf_getp(&rb, page_size - 3, 10, (void **) &result);
+    enum offset_result ret = ringbuf_getp(&rb, 9, 10, (void **) &result);
+    if (ret != RINGBUF_SUCCESS) {
+        CuFail(tc, "ringbuf_getp failed");
+        return;
+    }
 
+    CuAssertIntEquals(tc, 7, rb.cursor);
     CuAssertBytesEquals(tc, (uint8_t *) "0123456789", (uint8_t *) result, 10);
+
+    ringbuf_free(&rb);
+    free(data);
 }
 
 CuSuite *ringbuf_test_suite() {

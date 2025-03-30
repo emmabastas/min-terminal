@@ -9,7 +9,6 @@
 
 struct ringbuf {
     void *buf;
-    void *extra;
     bool continous_memory;
     size_t cursor;
     size_t size;
