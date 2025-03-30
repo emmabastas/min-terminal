@@ -211,6 +211,30 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
     return RINGBUF_SUCCESS;
 }
 
+enum offset_result ringbuf_writep(struct ringbuf *rb,
+                                  size_t len,
+                                  void **data_ret) {
+    const long page_size = sysconf(_SC_PAGE_SIZE);
+
+    if (!rb->continous_memory) {
+        return RINGBUF_DISCONTINOUS_MEMORY;
+    }
+
+    if (len > page_size) {
+        return RINGBUF_TOO_LARGE;
+    }
+
+    *data_ret = (char *)rb->buf + rb->cursor;
+
+    rb->cursor = (rb->cursor + len) & (rb->capacity - 1);
+    rb->size += len;
+    if (rb->size > rb->capacity) {
+        rb->size = rb->capacity;
+    }
+
+    return RINGBUF_SUCCESS;
+}
+
 
 
 ////////////////
@@ -235,6 +259,24 @@ void test_ringbuf_write_empty(CuTest *tc) {
     free(rb.buf);
 }
 
+void test_ringbuf_writep_empty(CuTest *tc) {
+    struct ringbuf rb;
+    ringbuf_initialize(4, true, &rb);
+
+    void *data;
+    enum offset_result ret = ringbuf_writep(&rb, 0, &data);
+
+    CuAssertIntEquals(tc, RINGBUF_SUCCESS, ret);
+    CuAssertIntEquals(tc, 0, rb.cursor);
+    CuAssertIntEquals(tc, 0, rb.size);
+
+    uint8_t *empty = calloc(rb.capacity, 1);
+    CuAssertBytesEquals(tc, empty, rb.buf, rb.capacity);
+
+    free(empty);
+    ringbuf_free(&rb);
+}
+
 // Writing data of size 1
 void test_ringbuf_write_single(CuTest *tc) {
     struct ringbuf rb;
@@ -254,6 +296,26 @@ void test_ringbuf_write_single(CuTest *tc) {
     free(rb.buf);
 }
 
+void test_ringbuf_writep_single(CuTest *tc) {
+    struct ringbuf rb;
+    ringbuf_initialize(4, true, &rb);
+
+    uint8_t *data;
+    enum offset_result ret = ringbuf_writep(&rb, 1, (void **) &data);
+    *data = '#';
+
+    CuAssertIntEquals(tc, RINGBUF_SUCCESS, ret);
+    CuAssertIntEquals(tc, 1, rb.cursor);
+    CuAssertIntEquals(tc, 1, rb.size);
+
+    uint8_t *expected = calloc(rb.capacity, 1);
+    *expected = '#';
+    CuAssertBytesEquals(tc, expected, rb.buf, rb.capacity);
+
+    free(expected);
+    ringbuf_free(&rb);
+}
+
 // Writing data small enoguh to not wrap
 void test_ringbuf_write_nowrap(CuTest *tc) {
     struct ringbuf rb;
@@ -271,6 +333,30 @@ void test_ringbuf_write_nowrap(CuTest *tc) {
 
     free(expected_buf);
     free(rb.buf);
+}
+
+void test_ringbuf_writep_nowrap(CuTest *tc) {
+    struct ringbuf rb;
+    ringbuf_initialize(64, true, &rb);
+
+    const char *DATA = "0123456789abcdefghijklmnopqrstuvwxys";
+
+    uint8_t *writeptr;
+    enum offset_result ret = ringbuf_writep(&rb,
+                                            strlen(DATA),
+                                            (void **) &writeptr);
+    memcpy(writeptr, DATA, strlen(DATA));
+
+    CuAssertIntEquals(tc, RINGBUF_SUCCESS, ret);
+    CuAssertIntEquals(tc, strlen(DATA), rb.cursor);
+    CuAssertIntEquals(tc, strlen(DATA), rb.size);
+
+    uint8_t *expected_buf = calloc(rb.capacity, 1);
+    memcpy(expected_buf, DATA, strlen(DATA));
+    CuAssertBytesEquals(tc, expected_buf, rb.buf, rb.capacity);
+
+    free(expected_buf);
+    ringbuf_free(&rb);
 }
 
 // Writing data that wraps around
@@ -294,6 +380,34 @@ void test_ringbuf_write_wrap_around(CuTest *tc) {
     free(rb.buf);
 }
 
+void test_ringbuf_writep_wrap_around(CuTest *tc) {
+    struct ringbuf rb;
+
+    char *DATA = "0123456789abcdefghijklmnopqrstuvwxys";
+
+    ringbuf_initialize(128, true, &rb);
+    rb.cursor = rb.capacity - 4;
+    rb.size = rb.capacity - 4;
+
+    char *writeptr;
+    enum offset_result ret = ringbuf_writep(&rb,
+                                            strlen(DATA),
+                                            (void **) &writeptr);
+    memcpy(writeptr, DATA, strlen(DATA));
+
+    CuAssertIntEquals(tc, RINGBUF_SUCCESS, ret);
+    CuAssertIntEquals(tc, strlen(DATA) - 4, rb.cursor);
+    CuAssertIntEquals(tc, rb.capacity, rb.size);
+
+    uint8_t *expected_buf = calloc(rb.capacity, 1);
+    memcpy(expected_buf + rb.capacity - 4, "0123", 4);
+    memcpy(expected_buf, "456789abcdefghijklmnopqrstuvwxys", strlen(DATA) - 4);
+    CuAssertBytesEquals(tc, expected_buf, rb.buf, rb.capacity);
+
+    free(expected_buf);
+    ringbuf_free(&rb);
+}
+
 // Writing data whose size equals the capacity
 void test_ringbuf_write_capacity(CuTest *tc) {
     struct ringbuf rb;
@@ -311,6 +425,28 @@ void test_ringbuf_write_capacity(CuTest *tc) {
 
     free(data);
     free(rb.buf);
+}
+
+void test_ringbuf_writep_capacity(CuTest *tc) {
+    struct ringbuf rb;
+    ringbuf_initialize(64, true, &rb);
+
+
+    uint8_t *writeptr;
+    enum offset_result ret = ringbuf_writep(&rb,
+                                            rb.capacity,
+                                            (void **) &writeptr);
+    for (int i = 0; i < rb.capacity; i ++) {
+        writeptr[i] = i;
+    }
+
+    CuAssertIntEquals(tc, RINGBUF_SUCCESS, ret);
+    CuAssertIntEquals(tc, 0, rb.cursor);
+    CuAssertIntEquals(tc, rb.capacity, rb.size);
+
+    CuAssertBytesEquals(tc, writeptr, rb.buf, rb.capacity);
+
+    ringbuf_free(&rb);
 }
 
 void test_ringbuf_write_many_wrap_around(CuTest *tc) {
@@ -411,10 +547,15 @@ void test_ringbuf_continous_memory(CuTest *tc) {
 CuSuite *ringbuf_test_suite() {
     CuSuite *suite = CuSuiteNew();
     SUITE_ADD_TEST(suite, test_ringbuf_write_empty);
+    SUITE_ADD_TEST(suite, test_ringbuf_writep_empty);
     SUITE_ADD_TEST(suite, test_ringbuf_write_single);
+    SUITE_ADD_TEST(suite, test_ringbuf_writep_single);
     SUITE_ADD_TEST(suite, test_ringbuf_write_nowrap);
+    SUITE_ADD_TEST(suite, test_ringbuf_writep_nowrap);
     SUITE_ADD_TEST(suite, test_ringbuf_write_wrap_around);
+    SUITE_ADD_TEST(suite, test_ringbuf_writep_wrap_around);
     SUITE_ADD_TEST(suite, test_ringbuf_write_capacity);
+    SUITE_ADD_TEST(suite, test_ringbuf_writep_capacity);
     SUITE_ADD_TEST(suite, test_ringbuf_write_many_wrap_around);
     SUITE_ADD_TEST(suite, test_ringbuf_get_wrap_around);
     SUITE_ADD_TEST(suite, test_ringbuf_page_aligned);

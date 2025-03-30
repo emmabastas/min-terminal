@@ -52,6 +52,9 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
                                 size_t offset,
                                 size_t len,
                                 void **data_ret);
+enum offset_result ringbuf_writep(struct ringbuf *rb,
+                                  size_t len,
+                                  void **data_ret);
 
 CuSuite *ringbuf_test_suite();
 
