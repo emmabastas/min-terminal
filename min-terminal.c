@@ -185,28 +185,38 @@ void render() {
     int row_on_screen = 1;
 
     for (int row = 1; row <= tb.scroll_position; row ++) {
-        const struct termbuf_char *this_row;
-        int this_row_length;
+        static struct termbuf_char c = {
+            .bg_color_r = 255,
+            .bg_color_g = 0,
+            .bg_color_b = 0,
+            .fg_color_r = 255,
+            .fg_color_g = 255,
+            .fg_color_b = 255,
+        };
+
+        const char *ascii;
+        int length;
         termbuf_scrollback_get_row(&tb,
-                                   tb.scroll_position,
-                                   &this_row,
-                                   &this_row_length);
+                                   tb.scroll_position - row_on_screen + 1,
+                                   &ascii,
+                                   &length);
 
-        int n = this_row_length < tb.ncols ? this_row_length : tb.ncols;
-        printf("n is : %d\n", n);
+        int n = length < tb.ncols ? length : tb.ncols;
+
         for (int col = 1; col <= n; col ++) {
-            //struct termbuf_char c = {
-            //    .flags = FLAG_LENGTH_0,
-            //    .bg_color_r = 255,
-            //    .bg_color_g = 0,
-            //    .bg_color_b = 0,
-            //};
 
-            struct termbuf_char c = this_row[col - 1];
-            c.bg_color_r = 255;
+            c.utf8_char[0] = ascii[col - 1];
+            c.flags = '!' <= ascii[col - 1] && ascii[col - 1] <= '~' ?
+                FLAG_LENGTH_1 : FLAG_LENGTH_0;
 
             rendering_render_cell(0, 0, row_on_screen, col, &c);
         }
+
+        c.flags = FLAG_LENGTH_0;
+        for (int col = n + 1; col <= tb.ncols; col++) {
+            rendering_render_cell(0, 0, row_on_screen, col, &c);
+        }
+
         row_on_screen ++;
     }
 

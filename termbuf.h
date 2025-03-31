@@ -184,7 +184,7 @@ void termbuf_scrollback_push_row(struct termbuf *tb,
                                  int length);
 void termbuf_scrollback_get_row(struct termbuf *tb,
                                 int offset,
-                                const struct termbuf_char **cell_ret,
+                                const char **ascii_ret,
                                 int *length_ret);
 
 CuSuite *termbuf_test_suite();

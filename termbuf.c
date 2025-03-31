@@ -574,11 +574,9 @@ void termbuf_resize(struct termbuf *tb, int nnrows, int nncols) {
 
 const int MAX_ROW_LENGTH = 256;
 
-union scrollback_data {
-    struct metadata {
-        int8_t nelements;
-    } metadata;
-    struct termbuf_char element;
+struct scrollback_row {
+    char ascii[255];
+    uint8_t nitems;
 };
 
 void termbuf_scrollback_push_row(struct termbuf *tb,
@@ -586,56 +584,42 @@ void termbuf_scrollback_push_row(struct termbuf *tb,
                                  int length) {
     assert(length <= MAX_ROW_LENGTH);
 
-    const size_t BYTES_NEEDED = (length + 1) * sizeof(union scrollback_data);
+    const long PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
+    assert(PAGE_SIZE % sizeof(struct scrollback_row) == 0);
 
-    union scrollback_data *writeptr;
-    enum offset_result ret = ringbuf_writep(&tb->scrollback,
-                                            BYTES_NEEDED,
-                                            (void **) &writeptr);
+    struct scrollback_row *writeptr;
+    enum offset_result ret;
+    ret = ringbuf_writep(&tb->scrollback,
+                         sizeof(struct scrollback_row),
+                         (void **) &writeptr);
 
     if (ret != RINGBUF_SUCCESS) {
         assert(false);
     }
 
-    memcpy(writeptr, data, length * sizeof(union scrollback_data));
-    writeptr[length].metadata = (struct metadata) { .nelements = length };
+    writeptr->nitems = length;
+    for (int i = 0; i < length; i++) {
+        writeptr->ascii[i] = data[i].utf8_char[0];
+    }
+
 }
 
 void termbuf_scrollback_get_row(struct termbuf *tb,
                                 int rowindex,
-                                const struct termbuf_char **cell_ret,
+                                const char **ascii_ret,
                                 int *length_ret) {
-    #define OUT_OF_BOUNDS_LEN 3
-    static const struct termbuf_char OUT_OF_BOUNDS[OUT_OF_BOUNDS_LEN] = {
-        { { 'E', 0, 0, 0 },
-          FLAG_LENGTH_1,
-          255, 255, 255,
-          0, 0, 0,
-        },
-        { { 'N', 0, 0, 0 },
-          FLAG_LENGTH_1,
-          255, 255, 255,
-          0, 0, 0,
-        },
-        { { 'D', 0, 0, 0 },
-          FLAG_LENGTH_1,
-          255, 255, 255,
-          0, 0, 0,
-        },
-    };
+    #define OUT_OF_BOUNDS_LEN 11
+    static const char *OUT_OF_BOUNDS = "END OF DATA";
 
-    struct metadata *row_meta;
-    union scrollback_data *row_data;
+    struct scrollback_row *row;
     enum offset_result ret;
-
-    size_t offset = sizeof(union scrollback_data);
     ret = ringbuf_getp(&tb->scrollback,
-                       offset,
-                       sizeof(union scrollback_data),
-                       (void **) &row_meta);
+                       rowindex * sizeof(struct scrollback_row),
+                       sizeof(struct scrollback_row),
+                       (void **) &row);
 
     if (ret == RINGBUF_OUT_OF_BOUNDS) {
-        *cell_ret = OUT_OF_BOUNDS;
+        *ascii_ret = OUT_OF_BOUNDS;
         *length_ret = OUT_OF_BOUNDS_LEN;
         return;
     }
@@ -644,50 +628,8 @@ void termbuf_scrollback_get_row(struct termbuf *tb,
         assert(false);
     }
 
-    for (int i = 0; i < rowindex; i++) {
-        printf("this len %d\n", row_meta->nelements);
-        offset += sizeof(union scrollback_data) * (row_meta->nelements + 1);
-        ret = ringbuf_getp(&tb->scrollback,
-                           offset,
-                           sizeof(union scrollback_data),
-                           (void **) &row_meta);
-
-        if (ret == RINGBUF_OUT_OF_BOUNDS) {
-            *cell_ret = OUT_OF_BOUNDS;
-            *length_ret = OUT_OF_BOUNDS_LEN;
-            return;
-        }
-        if (ret != RINGBUF_SUCCESS) {
-            fprintf(stderr, "ret: %d\n", ret);
-            assert(false);
-        }
-    }
-
-    printf("length %d\n", row_meta->nelements);
-
-    // TODO remove
-    if (row_meta->nelements > 5) {
-        row_meta->nelements = 5;
-    }
-
-    ret = ringbuf_getp(&tb->scrollback,
-                       sizeof(union scrollback_data) * (row_meta->nelements+1),
-                       sizeof(union scrollback_data) * (row_meta->nelements),
-                       (void **) &row_data);
-
-    if (ret == RINGBUF_OUT_OF_BOUNDS) {
-        *cell_ret = OUT_OF_BOUNDS;
-        *length_ret = OUT_OF_BOUNDS_LEN;
-        return;
-    }
-    if (ret != RINGBUF_SUCCESS) {
-        fprintf(stderr, "ret: %d\n", ret);
-        assert(false);
-    }
-
-    assert(sizeof(struct termbuf_char) == sizeof(union scrollback_data));
-    *cell_ret = (struct termbuf_char *) row_data;
-    *length_ret = row_meta->nelements;
+    *ascii_ret = (const char *) row + offsetof(struct scrollback_row, ascii);
+    *length_ret = row->nitems;
 }
 
 
