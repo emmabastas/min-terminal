@@ -185,11 +185,10 @@ void render() {
     int row_on_screen = 1;
 
     for (int row = 1; row <= tb.scroll_position; row ++) {
-        struct termbuf_char *this_row;
+        const struct termbuf_char *this_row;
         int this_row_length;
         termbuf_scrollback_get_row(&tb,
-                                   //tb.scroll_position,
-                                   0,
+                                   tb.scroll_position,
                                    &this_row,
                                    &this_row_length);
 
@@ -203,10 +202,10 @@ void render() {
             //    .bg_color_b = 0,
             //};
 
-            struct termbuf_char c = this_row[col];
+            struct termbuf_char c = this_row[col - 1];
             c.bg_color_r = 255;
 
-            rendering_render_cell(0, 0, row, col, &c);
+            rendering_render_cell(0, 0, row_on_screen, col, &c);
         }
         row_on_screen ++;
     }

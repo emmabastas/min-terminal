@@ -204,10 +204,10 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
         return RINGBUF_OUT_OF_BOUNDS;
     }
 
-    assert(len <= offset + 1);
+    assert(len <= offset);
 
     *data_ret =
-        (char *)rb->buf + ((rb->cursor - 1 - offset) & (rb->capacity - 1));
+        (char *)rb->buf + ((rb->cursor - offset) & (rb->capacity - 1));
     return RINGBUF_SUCCESS;
 }
 
@@ -531,7 +531,7 @@ void test_ringbuf_continous_memory(CuTest *tc) {
     // 0123456789xxxx...
 
     char *result;
-    enum offset_result ret = ringbuf_getp(&rb, 9, 10, (void **) &result);
+    enum offset_result ret = ringbuf_getp(&rb, 10, 10, (void **) &result);
     if (ret != RINGBUF_SUCCESS) {
         CuFail(tc, "ringbuf_getp failed");
         return;
