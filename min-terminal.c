@@ -102,8 +102,6 @@
 #include "./diagnostics.h"
 #include "./util.h"
 
-#define RINGBUF_CAPACITY 1024
-
 static Display *display;
 static int window;
 static int screen;
