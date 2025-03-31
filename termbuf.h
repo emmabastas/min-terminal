@@ -178,6 +178,10 @@ void termbuf_shift(struct termbuf *tb);
 
 void termbuf_resize(struct termbuf *tb, int nnrows, int nncols);
 
+
+void termbuf_scrollback_push_row(struct termbuf *tb,
+                                 struct termbuf_char *data,
+                                 int length);
 void termbuf_scrollback_get_row(struct termbuf *tb,
                                 int offset,
                                 struct termbuf_char **cell_ret,

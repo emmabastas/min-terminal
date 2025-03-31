@@ -10,6 +10,8 @@
 #include "./util.h"
 #include "./CuTest.h"
 
+#include "./termbuf.h"
+
 
 
 // Shoutout https://poor.dev/blog/terminal-anatomy/
@@ -469,7 +471,7 @@ void termbuf_initialize(int nrows,
         assert(false);
     }
 
-    ringbuf_initialize(RINGBUF_CAPACITY_1KiB, false, &tb_ret->scrollback);
+    ringbuf_initialize(RINGBUF_CAPACITY_1KiB, true, &tb_ret->scrollback);
 }
 
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
@@ -525,7 +527,7 @@ void termbuf_shift(struct termbuf *tb) {
     size_t bytes_per_row = tb->ncols * sizeof(struct termbuf_char);
 
     // Copy the top line in the buffer into the scrollback buffer
-    ringbuf_write(&tb->scrollback, (uint8_t *) tb->buf, bytes_per_row);
+    termbuf_scrollback_push_row(tb, tb->buf, tb->ncols);
 
     memmove(tb->buf,
             tb->buf + tb->ncols,
@@ -563,75 +565,72 @@ void termbuf_resize(struct termbuf *tb, int nnrows, int nncols) {
     tb->ncols = nncols;
 }
 
-/*
-  Suppose a single termbuf_char occupies 16 bytes.
 
-  If we have a row of 80 termbuf_char's that we want to push then we have to
-  write 80 * 16 = 1280 bytes of data + 1 byte to encode the length (so if a row
-  is longer than 255 bytes then we're in trouble.)
 
-  Scrollback buffer:
-              <---- our row ---->
-  ╭──────────┬───────────────────┬────────────────────────────╮
-  │ .. .. .. │ 80 .. .. .. .. .. │ .. .. .. .. .. .. .. .. .. │
-  ╰──────────┴───────────────────┴────────────────────────────╯
+////////////////////////////////////////////////////////
+// PUSING AND POPPING ROWS FROM THE SCROLLBACK BUFFER //
+////////////////////////////////////////////////////////
 
-  Since the scrollback buffer wraps around a single termbuf_char doesn't
-  necessarily occupy one contiguous block, for instace:
 
-   row ------->                                        <-- our
-  ╭─────────────┬─────────────────────────────────────┬───────╮
-  │ .. .. .. .. │ .. .. .. .. .. .. .. .. .. .. .. .. │ 80 .. │
-  ╰─────────────┴─────────────────────────────────────┴───────╯
+const int MAX_ROW_LENGTH = 256;
 
-  This is why the code bellow insists on writing the termbuf_char data one
-  uint8_t at a time. Doing things these ways are kinda sketchy, because now
-  you run a big risk of writing architecture pendant code, you might
-  accidentally rely on a certain alignment, or endianness. I think we're good
-  though, and.. I'm not writing for anyone's machine but my own.
-
- */
+struct scrollback_row {
+    int length;
+    struct termbuf_char data[];
+};
 
 void termbuf_scrollback_push_row(struct termbuf *tb,
                                  struct termbuf_char *data,
                                  int length) {
-    assert(length < 255);  // N.B. It's really supposed to be `< 255`: We need
-                           // one byte to encode the length.
+    assert(length <= MAX_ROW_LENGTH);
 
-    uint8_t length_u8 = length;
+    size_t bytes_needed = sizeof(struct scrollback_row) +
+        length * sizeof(struct termbuf_char);
 
-    ringbuf_write(&tb->scrollback, &length_u8, 1);
-    ringbuf_write(&tb->scrollback,
-                  (uint8_t *) data,
-                  length * sizeof(struct termbuf_char));
+    struct scrollback_row *row;
+    enum offset_result ret = ringbuf_writep(&tb->scrollback,
+                                            bytes_needed,
+                                            (void **) &row);
+
+    if (ret != RINGBUF_SUCCESS) {
+        assert(false);
+    }
+
+    row->length = length;
+    memcpy(row + offsetof(struct scrollback_row, data),
+           data,
+           length * sizeof(struct termbuf_char));
 }
 
 void termbuf_scrollback_get_row(struct termbuf *tb,
-                                int offset,
+                                int rowindex,
                                 struct termbuf_char **cell_ret,
                                 int *length_ret) {
-    assert(offset >= 0);
 
-    struct termbuf_char buf[256];
-    uint8_t *buf_raw = (uint8_t *) buf;
+    const size_t BYTES_NEEDED = sizeof(struct scrollback_row) +
+        MAX_ROW_LENGTH * sizeof(struct termbuf_char);
 
-    size_t current_offset = tb->scroll_offset;
+    struct scrollback_row *row;
+    enum offset_result ret
 
-    for (int i = 0; i < offset; i++) {
-        uint8_t row_length = ringbuf_get(&tb->scrollback, current_offset);
-        current_offset += row_length * sizeof(struct termbuf_char);
+
+    ret = ringbuf_getp(&tb->scrollback,
+                       BYTES_NEEDED,
+                       sizeof(struct scrollback_row),
+                       (void **) &row);
+
+    if (ret != RINGBUF_SUCCESS) {
+        assert(false);
     }
 
-    uint8_t row_length = ringbuf_get(&tb->scrollback, current_offset);
-    current_offset += row_length * sizeof(struct termbuf_char);
-    for (int i = 0; i < row_length * sizeof(struct termbuf_char); i++) {
-        // TODO: ringbuf_get wraps around, but we want that to raise an error
-        //       in this situation instead.
-        buf_raw[i] = ringbuf_get(&tb->scrollback, current_offset + i + 1);
+    for (int i = 0; i < rowindex; i ++) {
+
     }
 
-    *cell_ret = buf;
-    *length_ret = row_length;
+
+    *length_ret = row->length;
+    *cell_ret = (struct termbuf_char *) row
+        + offsetof(struct scrollback_row, data);
 }
 
 
