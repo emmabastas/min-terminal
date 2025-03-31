@@ -224,7 +224,7 @@ void rendering_calculate_sizes(int screen_height,
 
     // Now that we know the cell size we can calculate how many rows and
     // collumns will fit in the window.
-    nrows = (int) floor((float) screen_height / (float) cell_height);
+    nrows = (int) floor((float) screen_height / (float) cell_height) + 1;
     ncols = (int) floor((float) screen_width / (float) cell_width);
 
     *nrows_ret = nrows;
@@ -324,7 +324,7 @@ void rendering_render_cell(int xoffset, int yoffset, int row, int col,
     stbtt_FreeBitmap(bitmap, NULL);
 
     glViewport((col - 1) * cell_width,
-               (nrows - row + 1) * cell_height,
+               (nrows - row + 0) * cell_height,
                cell_width,
                cell_height);
 
