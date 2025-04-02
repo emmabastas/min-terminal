@@ -157,7 +157,53 @@ def run_shell(args, **kwargs):
     print()
     print(">  " + " ".join(args))
     print()
-    subprocess.run(args, **kwargs)
+
+    result = subprocess.run(args, **kwargs)
+
+    if not result.returncode == 0:
+        try:
+            signalnames = {
+                1: 'SIGHUP',
+                2: 'SIGINT',
+                3: 'SIGQUIT',
+                4: 'SIGILL',
+                5: 'SIGTRAP',
+                6: 'SIGABRT',
+                7: 'SIGBUS',
+                8: 'SIGFPE',
+                9: 'SIGKILL',
+                10: 'SIGUSR1',
+                11: 'SIGSEGV',
+                12: 'SIGUSR2',
+                13: 'SIGPIPE',
+                14: 'SIGALRM',
+                15: 'SIGTERM',
+                16: 'SIGSTKFLT',
+                17: 'SIGCHLD',
+                18: 'SIGCONT',
+                19: 'SIGSTOP',
+                20: 'SIGTSTP',
+                21: 'SIGTTIN',
+                22: 'SIGTTOU',
+                23: 'SIGURG',
+                24: 'SIGXCPU',
+                25: 'SIGXFSZ',
+                26: 'SIGVTALRM',
+                27: 'SIGPROF',
+                28: 'SIGWINCH',
+                29: 'SIGIO',
+                30: 'SIGPWR',
+                31: 'SIGSYS',
+            }
+            signalname = signalnames[result.returncode - 128]
+            print()
+            print(f"Process terminated with exit code {result.returncode} {signalname}")
+            print()
+        except KeyError:
+            print()
+            print(f"Process terminated with exit code {result.returncode}")
+            print()
+
 
 if __name__ == "__main__":
     main()
