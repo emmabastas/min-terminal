@@ -196,7 +196,7 @@ def run_shell(args, **kwargs):
                 30: 'SIGPWR',
                 31: 'SIGSYS',
             }
-            signalname = signalnames[result.returncode - 128]
+            signalname = signalnames[abs(result.returncode) & 0b01111111]
             print()
             print(f"Process terminated with exit code {result.returncode} {signalname}")
             print()
