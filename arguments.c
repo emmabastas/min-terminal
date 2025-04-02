@@ -8,14 +8,19 @@
 
 #include "./diagnostics.h"
 
-static const char *ARGP_PROGRAM_VERSION = "min-terminal";
-static const char *ARGP_PROGRAM_BUG_ADDRESS = "<emma.bastas@protonmail.com>";
+const char *argp_program_version = "min-terminal";
+const char *argp_program_bug_address = "<emma.bastas@protonmail.com>";
 static const char DOC[] = "DOC";
 static const char ARGS_DOC[] = "ARGS_DOC";
 
 static const struct argp_option ARGP_OPTIONS[] = {
-    { "execute", 'e', "\"command args ...\"", 0,
-      "Specify a command for the terminal to execute" },
+    { .name = "execute",
+      .key = 'e',
+      .arg = "\"command args ...\"",
+      .flags = 0,
+      .doc = "Specify a command for the terminal to execute",
+      .group = 0,
+    },
     { 0 },
 };
 
@@ -25,7 +30,12 @@ struct arguments_internal {
     wordexp_t execute;
 };
 
-static struct argp argp = { ARGP_OPTIONS, parse_opt, ARGS_DOC, DOC };
+static struct argp argp = {
+    .options = ARGP_OPTIONS,
+    .parser = parse_opt,
+    .args_doc = ARGS_DOC,
+    .doc = DOC
+};
 
 void arguments_parse(int argc, char **argv, struct arguments *args_ret) {
     struct arguments_internal iargs = {
@@ -101,6 +111,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 "positionals.\n\n",
                 arg);
         argp_usage(state);
+        return ARGP_ERR_UNKNOWN;
     case ARGP_KEY_NO_ARGS:  // These cases we simply ignore.
     case ARGP_KEY_END:
     case ARGP_KEY_INIT:

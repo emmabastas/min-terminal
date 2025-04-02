@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <assert.h>
 
 
 
@@ -19,20 +20,22 @@ void diagnostics_type(enum diagnostics_type_e t) {
     matches = (MASK & t) != 0;
 }
 
-void diagnostics_write_string(const char *s, size_t len) {
+void diagnostics_write_string(const char *s, int len) {
+    assert(len == -1 || len >= 0);
+
     if (!matches) {
         return;
     }
-    fwrite(s, sizeof(char), len > -1 ? len : strlen(s), stderr);
+
+    fwrite(s, sizeof(char), len > -1 ? (size_t) len : strlen(s), stderr);
 }
 
-void diagnostics_write_string_escape_non_printable(const char *data,
-                                                   size_t len) {
+void diagnostics_write_string_escape_non_printable(const char *data, int len) {
     if (!matches) {
         return;
     }
 
-    for(size_t i = 0; i < len; i++) {
+    for(int i = 0; i < len; i++) {
         unsigned char ch = data[i];
         // Is it a printable char?
         if (32 <= ch && ch <= 126) {
@@ -40,7 +43,6 @@ void diagnostics_write_string_escape_non_printable(const char *data,
             continue;
         }
 
-        char *s;
         switch (ch) {
         case '\0':
             fprintf(stderr, "\x1B[33m(\\0)<%d>\x1B[0m", ch);

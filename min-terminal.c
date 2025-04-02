@@ -115,8 +115,6 @@ static const int INITIAL_SCREEN_HEIGHT = 1000;
 
 static struct termbuf tb;
 
-static XEvent event;
-
 static int primary_pty_fd;    // Used by the terminal process.
 static int secondary_pty_fd;  // Used by the shell process.
 static pid_t shell_pid;       // The PID of the shell process.

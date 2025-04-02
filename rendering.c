@@ -239,6 +239,7 @@ void rendering_calculate_sizes(int screen_height,
 
 void rendering_render_cell(int xoffset, int yoffset, int row, int col,
                            struct termbuf_char *c) {
+    assert(xoffset == 0 && yoffset == 0);  // TOOD: Implement.
 
     int bitmap_width, bitmap_height, bitmap_xoffset, bitmap_yoffset;
     unsigned char *bitmap;

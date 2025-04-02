@@ -117,7 +117,6 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
 
 void ringbuf_free(struct ringbuf *rb) {
     if (rb->continous_memory) {
-        const long page_size = sysconf(_SC_PAGE_SIZE);
         int ret = munmap(rb->buf, 1);
         if (ret == -1) {
             assert(false);
@@ -449,9 +448,12 @@ void test_ringbuf_writep_capacity(CuTest *tc) {
     ringbuf_free(&rb);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void test_ringbuf_write_many_wrap_around(CuTest *tc) {
     // TODO
 }
+#pragma GCC diagnostic pop
 
 // Simple test that ringbuf_get wraps properly
 void test_ringbuf_get_wrap_around(CuTest *tc) {

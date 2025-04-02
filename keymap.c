@@ -106,10 +106,10 @@ struct constraint_s {
     char    *escape_sequence;
 };
 
-const static uint ANY_MOD    = UINT_MAX;
-const static uint NO_MOD     = 0;
-const static uint SWITCH_MOD = (1<<13|1<<14);  // TODO: What is this?
-const static uint IGNORED_MODIFIERS = Mod2Mask|SWITCH_MOD;
+static const uint ANY_MOD   = UINT_MAX;
+static const uint NO_MOD     = 0;
+static const uint SWITCH_MOD = (1<<13|1<<14);  // TODO: What is this?
+static const uint IGNORED_MODIFIERS = Mod2Mask|SWITCH_MOD;
 
 #define N_SPECIAL_KEYS 209
 static struct constraint_s special_keys_map[N_SPECIAL_KEYS];
@@ -233,33 +233,36 @@ void keymap_handle_x11_keypress(XKeyPressedEvent event) {
     }
 }
 
-const static uint8_t NNN = 16 | 4  | 1;              // 0b010101
-const static uint8_t NNY = 16 | 4  | 2;              // 0b010110
-const static uint8_t NN_ = 16 | 4  | 2 | 1;          // 0b010111
-const static uint8_t NYN = 16 | 8  | 1;              // 0b011001
-const static uint8_t NYY = 16 | 8  | 2;              // 0b011010
-const static uint8_t NY_ = 16 | 8  | 2 | 1;          // 0b011011
-const static uint8_t N_N = 16 | 8  | 4 | 1;          // 0b011101
-const static uint8_t N_Y = 16 | 8  | 4 | 2;          // 0b011110
-const static uint8_t N__ = 16 | 8  | 4 | 2 | 1;      // 0b011111
-const static uint8_t YNN = 32 | 4  | 1;              // 0b100101
-const static uint8_t YNY = 32 | 4  | 2;              // 0b100110
-const static uint8_t YN_ = 32 | 4  | 2 | 1;          // 0b100111
-const static uint8_t YYN = 32 | 8  | 1;              // 0b101001
-const static uint8_t YYY = 32 | 8  | 2;              // 0b101010
-const static uint8_t YY_ = 32 | 8  | 2 | 1;          // 0b101011
-const static uint8_t Y_N = 32 | 8  | 4 | 1;          // 0b101101
-const static uint8_t Y_Y = 32 | 8  | 4 | 2;          // 0b101110
-const static uint8_t Y__ = 32 | 8  | 4 | 2 | 1;      // 0b101111
-const static uint8_t _NN = 32 | 16 | 4 | 1;          // 0b110101
-const static uint8_t _NY = 32 | 16 | 4 | 2;          // 0b110110
-const static uint8_t _N_ = 32 | 16 | 4 | 2 | 1;      // 0b110111
-const static uint8_t _YN = 32 | 16 | 8 | 1;          // 0b111001
-const static uint8_t _YY = 32 | 16 | 8 | 2;          // 0b111010
-const static uint8_t _Y_ = 32 | 16 | 8 | 2 | 1;      // 0b111011
-const static uint8_t __N = 32 | 16 | 8 | 4 | 1;      // 0b111101
-const static uint8_t __Y = 32 | 16 | 8 | 4 | 2;      // 0b111110
-const static uint8_t ___ = 32 | 16 | 8 | 4 | 2 | 1;  // 0b111111
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
+static const uint8_t NNN = 16 | 4  | 1;              // 0b010101
+static const uint8_t NNY = 16 | 4  | 2;              // 0b010110
+static const uint8_t NN_ = 16 | 4  | 2 | 1;          // 0b010111
+static const uint8_t NYN = 16 | 8  | 1;              // 0b011001
+static const uint8_t NYY = 16 | 8  | 2;              // 0b011010
+static const uint8_t NY_ = 16 | 8  | 2 | 1;          // 0b011011
+static const uint8_t N_N = 16 | 8  | 4 | 1;          // 0b011101
+static const uint8_t N_Y = 16 | 8  | 4 | 2;          // 0b011110
+static const uint8_t N__ = 16 | 8  | 4 | 2 | 1;      // 0b011111
+static const uint8_t YNN = 32 | 4  | 1;              // 0b100101
+static const uint8_t YNY = 32 | 4  | 2;              // 0b100110
+static const uint8_t YN_ = 32 | 4  | 2 | 1;          // 0b100111
+static const uint8_t YYN = 32 | 8  | 1;              // 0b101001
+static const uint8_t YYY = 32 | 8  | 2;              // 0b101010
+static const uint8_t YY_ = 32 | 8  | 2 | 1;          // 0b101011
+static const uint8_t Y_N = 32 | 8  | 4 | 1;          // 0b101101
+static const uint8_t Y_Y = 32 | 8  | 4 | 2;          // 0b101110
+static const uint8_t Y__ = 32 | 8  | 4 | 2 | 1;      // 0b101111
+static const uint8_t _NN = 32 | 16 | 4 | 1;          // 0b110101
+static const uint8_t _NY = 32 | 16 | 4 | 2;          // 0b110110
+static const uint8_t _N_ = 32 | 16 | 4 | 2 | 1;      // 0b110111
+static const uint8_t _YN = 32 | 16 | 8 | 1;          // 0b111001
+static const uint8_t _YY = 32 | 16 | 8 | 2;          // 0b111010
+static const uint8_t _Y_ = 32 | 16 | 8 | 2 | 1;      // 0b111011
+static const uint8_t __N = 32 | 16 | 8 | 4 | 1;      // 0b111101
+static const uint8_t __Y = 32 | 16 | 8 | 4 | 2;      // 0b111110
+static const uint8_t ___ = 32 | 16 | 8 | 4 | 2 | 1;  // 0b111111
+#pragma GCC diagnostic pop
 
 static struct constraint_s special_keys_map[N_SPECIAL_KEYS] = {
     // keysym           c1                              c2

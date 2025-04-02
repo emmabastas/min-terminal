@@ -688,7 +688,10 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
     diagnostics_flush();
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void action_noop(struct termbuf *tb, char ch) {}
+#pragma GCC diagnostic pop
 
 void action_fail(struct termbuf *tb, char ch) {
     // TODO: A problem here is that we might be displaying parse data from
@@ -918,7 +921,7 @@ void action_utf8_chomp_end(struct termbuf *tb, char ch) {
 }
 
 void action_nf_chomp_start(struct termbuf *tb, char ch) {
-    assert(32 <= ch <= 47);
+    assert(32 <= ch && ch <= 47);
 
     tb->p_data.ansi_nf_chomping = (struct ansi_nf_chomping) {
         .initial_char = ch,
@@ -927,16 +930,19 @@ void action_nf_chomp_start(struct termbuf *tb, char ch) {
 }
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void action_nf_chomp_continue(struct termbuf *tb, char ch) {
     assert(false);
 }
+#pragma GCC diagnostic pop
 
 void action_nf_chomp_end(struct termbuf *tb, char final_byte) {
     // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html has some info on
     // some of these types of escape sequences.
 
     // Check that final_byte is in the range it's supposed to be in.
-    assert(48 <= final_byte <= 126);
+    assert(48 <= final_byte && final_byte <= 126);
 
     struct ansi_nf_chomping *data = &tb->p_data.ansi_nf_chomping;
 
@@ -1096,8 +1102,8 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     uint16_t p1 = data->params[0];
     uint16_t p2 = data->params[1];
     uint16_t p3 = data->params[2];
-    uint16_t p4 = data->params[3];
-    uint16_t p5 = data->params[4];
+    // uint16_t p4 = data->params[3];
+    // uint16_t p5 = data->params[4];
 
     // ESC[?<p>h ESC[?<p>l
     // See `void csi_dec_private_mode_set` for documentation on these types of
@@ -1220,6 +1226,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             }
 
             // TODO: Do something with this.
+            printf("vt100 %d, 8-bit %d\n", vt100, eight_bit);
             return;
         }
 
@@ -1407,15 +1414,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC n ; m H, CUP, set cursor position
     if (ch == 'H' && len <= 2) {
-        p1 = p1 == -1 ? 1 : p1;
-        p2 = p2 == -1 ? 1 : p2;
+        p1 = p1 == (uint16_t) -1 ? 1 : p1;
+        p2 = p2 == (uint16_t) -1 ? 1 : p2;
         tb->row = p1;
         tb->col = p2;
         return;
     }
 
     // ESC 0 J, ED, erase display from cursor to end of scree.
-    if (ch == 'J' && (len == 0 || (len == 1 && p1 == -1))) {
+    if (ch == 'J' && (len == 0 || (len == 1 && p1 == (uint16_t) -1))) {
         for (int i = tb->col; i <= tb->ncols; i++) {
             tb->buf[(tb->row - 1) * tb->ncols + i - 1].flags = FLAG_LENGTH_0;
         }
@@ -1443,7 +1450,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
     // ESC 0 K, EL, erase line from cursor to end of line.
     if (ch == 'K' && (len == 0 || len == 1)) {
-        p1 = p1 == -1 ? 1 : p1;
+        p1 = p1 == (uint16_t) -1 ? 1 : p1;
 
         memset(tb->buf + ((tb->row - 1) * tb->ncols) + tb->col - 1,
                0,
@@ -1689,9 +1696,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 if (q == 5) {
                     // There should be at least one parameter following the '5'.
                     assert(i + 2 < len);
-                    uint8_t q2 = data->params[i + 2];
-                    q2 = q2 == -1 ? 0 : q2;
-                    assert(0 <= q2 && q2 <= 255);
+                    uint16_t q2 = data->params[i + 2];
+                    q2 = q2 == (uint16_t) -1 ? 0 : q2;
+                    assert(q2 <= 255);
                     tb->fg_color_r = eight_bit_colors[q2 * 3];
                     tb->fg_color_g = eight_bit_colors[q2 * 3 + 1];
                     tb->fg_color_b = eight_bit_colors[q2 * 3 + 2];
@@ -1707,12 +1714,12 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     // There should be at least three parameters following the
                     // '2'.
                     assert(i + 4 < len);
-                    uint8_t q2 = data->params[i + 2]; // red.
-                    uint8_t q3 = data->params[i + 3]; // green.
-                    uint8_t q4 = data->params[i + 4]; // blue.
-                    assert(0 <= q2 && q2 <= 255);
-                    assert(0 <= q3 && q3 <= 255);
-                    assert(0 <= q4 && q4 <= 255);
+                    uint16_t q2 = data->params[i + 2]; // red.
+                    uint16_t q3 = data->params[i + 3]; // green.
+                    uint16_t q4 = data->params[i + 4]; // blue.
+                    assert(q2 <= 255);
+                    assert(q3 <= 255);
+                    assert(q4 <= 255);
                     tb->fg_color_r = q2;
                     tb->fg_color_g = q3;
                     tb->fg_color_b = q4;
@@ -1766,9 +1773,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 if (q == 5) {
                     // There should be at least one parameter following the '5'.
                     assert(i + 2 < len);
-                    uint8_t q2 = data->params[i + 2];
-                    q2 = q2 == -1 ? 0 : q2;
-                    assert(0 <= q2 && q2 <= 255);
+                    uint16_t q2 = data->params[i + 2];
+                    q2 = q2 == (uint16_t) -1 ? 0 : q2;
+                    assert(q2 <= 255);
                     tb->bg_color_r = eight_bit_colors[q2 * 3];
                     tb->bg_color_g = eight_bit_colors[q2 * 3 + 1];
                     tb->bg_color_b = eight_bit_colors[q2 * 3 + 2];
@@ -1784,12 +1791,12 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     // There should be at least three parameters following the
                     // '2'.
                     assert(i + 4 < len);
-                    uint8_t q2 = data->params[i + 2]; // red.
-                    uint8_t q3 = data->params[i + 3]; // green.
-                    uint8_t q4 = data->params[i + 4]; // blue.
-                    assert(0 <= q2 && q2 <= 255);
-                    assert(0 <= q3 && q3 <= 255);
-                    assert(0 <= q4 && q4 <= 255);
+                    uint16_t q2 = data->params[i + 2]; // red.
+                    uint16_t q3 = data->params[i + 3]; // green.
+                    uint16_t q4 = data->params[i + 4]; // blue.
+                    assert(q2 <= 255);
+                    assert(q3 <= 255);
+                    assert(q4 <= 255);
                     tb->bg_color_r = q2;
                     tb->bg_color_g = q3;
                     tb->bg_color_b = q4;
@@ -2054,7 +2061,7 @@ void unknown_csi(struct termbuf *tb, char ch) {
            data->current_param,
            len,
            p1, p2, p3, p4, p5,
-           data->intermediate, data->intermediate);
+           intermediate, intermediate);
 }
 
 void action_osc_chomp_start(struct termbuf *tb, char ch) {
@@ -2075,6 +2082,8 @@ void action_osc_chomp(struct termbuf *tb, char ch) {
 }
 
 void action_osc_chomp_end(struct termbuf *tb, char ch) {
+    assert(ch == 7);
+
     // See
     // - https://www.xfree86.org/current/ctlseqs.html
     //   for OSC sequences supported by xterm.
@@ -8084,11 +8093,11 @@ void cu_assert_buf_equals(CuTest *tc, struct termbuf *tb1, struct termbuf *tb2)
             struct termbuf_char c1 = tb1->buf[index];
             struct termbuf_char c2 = tb1->buf[index];
             int len1 = c1.flags & FLAG_LENGTH_MASK;
-            int len2 = c1.flags & FLAG_LENGTH_MASK;
+            int len2 = c2.flags & FLAG_LENGTH_MASK;
             CuAssertIntEquals(tc, 1, len1);
             CuAssertIntEquals(tc, 1, len2);
             tmp1[index] = c1.utf8_char[0];
-            tmp2[index] = c1.utf8_char[0];
+            tmp2[index] = c2.utf8_char[0];
         }
     }
 
