@@ -43,8 +43,9 @@ unit_test_input_files = [
     "dist/glad/src/gl.c",
     "dist/glad/src/glx.c"
 ]
-debug_flags = ["-g", "-Og", "-std=gnu99", "-pedantic", "-D", "_GNU_SOURCE"]
-production_flags = ["-O3", "-std=gnu99", "-pedantic", "-D", "_GNU_SOURCE"]
+common_flags = ["-std=c99", "-pedantic", "-D", "_GNU_SOURCE"]
+debug_flags = ["-g", "-Og", *common_flags]
+production_flags = ["-O3", *common_flags]
 unittest_flags = ["-D UNITTEST"]
 includes = ["-I", "dist/", "-I", "dist/glad/include/"]
 
