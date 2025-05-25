@@ -474,6 +474,11 @@ void termbuf_initialize(int nrows,
     ringbuf_initialize(RINGBUF_CAPACITY_1KiB, true, &tb_ret->scrollback);
 }
 
+void termbuf_free(struct termbuf *tb) {
+    free(tb->buf);
+    ringbuf_free(&tb->scrollback);
+}
+
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
     assert(len > 0);
     assert(len <= 4);
@@ -8139,6 +8144,9 @@ void test_buffer_resize_noop(CuTest *tc) {
     termbuf_resize(&tb2, 4, 5);  // Resize to the same contents as before.
 
     cu_assert_buf_equals(tc, &tb1, &tb2);
+
+    termbuf_free(&tb1);
+    termbuf_free(&tb2);
 }
 
 void test_buffer_resize_shrink(CuTest *tc) {
@@ -8164,6 +8172,9 @@ void test_buffer_resize_shrink(CuTest *tc) {
     termbuf_resize(&tb2, 2, 3);
 
     cu_assert_buf_equals(tc, &tb1, &tb2);
+
+    termbuf_free(&tb1);
+    termbuf_free(&tb2);
 }
 
 void test_buffer_resize_grow_shrink(CuTest *tc) {
@@ -8188,6 +8199,9 @@ void test_buffer_resize_grow_shrink(CuTest *tc) {
     termbuf_resize(&tb2, 2, 3);
 
     cu_assert_buf_equals(tc, &tb1, &tb2);
+
+    termbuf_free(&tb1);
+    termbuf_free(&tb2);
 }
 
 CuSuite *termbuf_test_suite() {
