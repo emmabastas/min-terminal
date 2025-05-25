@@ -495,8 +495,8 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
         }
     }
 
-    size_t index = (tb->row - 1) * tb->ncols + (tb -> col - 1);
-    memcpy(tb->buf[index].utf8_char, utf8_char, 4);
+    size_t index = (tb->row - 1) * tb->ncols + (tb->col - 1);
+    memcpy(tb->buf[index].utf8_char, utf8_char, len);
     tb->flags = (tb->flags & ~FLAG_LENGTH_MASK) | len;
 
     if ((tb->flags & FLAG_INVERT_COLORS) == 0) {
