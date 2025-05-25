@@ -53,39 +53,53 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
     if (continous_memory) {
         const long page_size = sysconf(_SC_PAGE_SIZE);
 
-        // TODO https://stackoverflow.com/questions/7335007/how-to-map-two-virtual-adresses-on-the-same-physical-memory-on-linux
-
-        // align capacity uppwards to the nearest page bondary.
+        // Align capacity uppwards to the nearest page bondary.
         size_t aligned_capacity =
             ((cap + page_size - 1) / page_size) * page_size;
 
+        // Create a file descriptor backed by RAM.
         int fd = memfd_create("ringbuf", 0);
         if (fd == -1) {
             assert(false);
         }
 
-        int ret = ftruncate(fd, page_size);
+        // Make the file descriptor big enough.
+        int ret = ftruncate(fd, aligned_capacity);
         if (ret == -1) {
             assert(false);
         }
 
+        // Have the Kernel allocate a big enough block of virtual memory not
+        // backed by anything.
         uint8_t *buf = mmap(NULL,
                             aligned_capacity + page_size,
-                            PROT_READ | PROT_WRITE,
-                            MAP_SHARED,
-                            fd,
+                            PROT_NONE,
+                            MAP_PRIVATE | MAP_ANONYMOUS,
+                            -1,
                             0);
         if (buf == MAP_FAILED) {
             assert(false);
         }
 
-        uint8_t *extra = mmap(buf + aligned_capacity,
-                              page_size,
-                              PROT_READ | PROT_WRITE,
-                              MAP_SHARED | MAP_FIXED,
-                              fd,
-                              0);
-        if (extra == MAP_FAILED) {
+        // Map the main region of `buf` to the `fd`.
+        uint8_t *main_region = mmap(buf,
+                                    aligned_capacity,
+                                    PROT_READ | PROT_WRITE,
+                                    MAP_SHARED | MAP_FIXED,
+                                    fd,
+                                    0);
+        if (main_region == MAP_FAILED) {
+            assert(false);
+        }
+
+        // Map the margin region of byf to the same `fd`.
+        uint8_t *margin_region = mmap(buf + aligned_capacity,
+                                      page_size,
+                                      PROT_READ | PROT_WRITE,
+                                      MAP_SHARED | MAP_FIXED,
+                                      fd,
+                                      0);
+        if (margin_region == MAP_FAILED) {
             assert(false);
         }
 
@@ -94,6 +108,9 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
             assert(false);
         }
 
+        // Check that we did our math correctly..
+        assert(main_region == buf);
+        assert(margin_region == main_region + aligned_capacity);
 
         rb_ret->buf = buf;
         rb_ret->continous_memory = true;
