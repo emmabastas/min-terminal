@@ -139,9 +139,6 @@ void gl_debug_msg_callback(GLenum source,
                            const void *userParam);
 
 void render() {
-    const int cell_width = 18;
-    const int cell_height = 22;
-
     /*
                       Scrollback buffer
          |                                         |     .
@@ -421,11 +418,12 @@ void handle_primary_pty_input() {
         // This pythonic try-except is also good C as far as I can tell.
         // We assume that O_NONBLOCK has been set on primary_pty_fd somewhere
         // arleady.
-        if (did_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+        if (did_read == (size_t) -1
+            && (errno == EAGAIN || errno == EWOULDBLOCK)) {
             break;
         }
 
-        if (did_read == -1) {  // Some other error.
+        if (did_read == (size_t) -1) {  // Some other error.
             assert(false);
         }
 
@@ -518,7 +516,9 @@ void handle_x11_event() {
 
             // This event can happen for many reasons, one of them being when
             // the window is resized, which is the what were interested in.
-            if (xce.width == window_height && xce.height == window_width) {
+            assert(xce.width >= 0 && xce.height >= 0);
+            if ((unsigned int) xce.width == window_height
+                && (unsigned int )xce.height == window_width) {
                 continue;
             }
 
@@ -584,7 +584,7 @@ void handle_x11_event() {
             printf("\n\x1B[36m> VisibilityNotify event\x1B[0m\n");
 
             if (event.xvisibility.state == VisibilityUnobscured
-                | event.xvisibility.state == VisibilityPartiallyObscured) {
+                || event.xvisibility.state == VisibilityPartiallyObscured) {
                 render();
             }
 
@@ -817,7 +817,7 @@ int main(int argc, char **argv) {
 
     GLint flags;
     glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
-    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT == 0) {
+    if ((flags & GL_CONTEXT_FLAG_DEBUG_BIT) == 0) {
         assert(false);
     }
 
@@ -982,13 +982,13 @@ int main(int argc, char **argv) {
 #endif
 
 // https://gist.github.com/liam-middlebrook/c52b069e4be2d87a6d2f
-void gl_debug_msg_callback(GLenum source,
-                           GLenum type,
-                           GLuint id,
-                           GLenum severity,
-                           GLsizei length,
+void gl_debug_msg_callback(__attribute__((unused)) GLenum source,
+                           __attribute__((unused)) GLenum type,
+                           __attribute__((unused)) GLuint id,
+                           __attribute__((unused)) GLenum severity,
+                           __attribute__((unused)) GLsizei length,
                            const GLchar *message,
-                           const void *userParam) {
+                           __attribute__((unused)) const void *userParam) {
     printf("\x1b[31mGL error message:\x1B[m \"%s\"\n", message);
     assert(false);
 }

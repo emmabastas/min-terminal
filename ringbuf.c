@@ -23,6 +23,12 @@ size_t max(size_t x, size_t y) {
     return y;
 }
 
+size_t get_page_size() {
+    const long page_size = sysconf(_SC_PAGE_SIZE);
+    assert(page_size >= 0);
+    return page_size;
+}
+
 void ringbuf_initialize(enum ringbuf_capacity cap,
                         bool continous_memory,
                         struct ringbuf *rb_ret) {
@@ -51,7 +57,7 @@ void ringbuf_initialize(enum ringbuf_capacity cap,
            || cap == 1 << 24);
 
     if (continous_memory) {
-        const long page_size = sysconf(_SC_PAGE_SIZE);
+        const size_t page_size = get_page_size();
 
         // Align capacity uppwards to the nearest page bondary.
         size_t aligned_capacity =
@@ -206,13 +212,11 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
                                 size_t offset,
                                 size_t len,
                                 void **data_ret) {
-    const long page_size = sysconf(_SC_PAGE_SIZE);
-
     if (!rb->continous_memory) {
         return RINGBUF_DISCONTINOUS_MEMORY;
     }
 
-    if (len > page_size) {
+    if (len > get_page_size()) {
         return RINGBUF_TOO_LARGE;
     }
 
@@ -230,13 +234,11 @@ enum offset_result ringbuf_getp(struct ringbuf *rb,
 enum offset_result ringbuf_writep(struct ringbuf *rb,
                                   size_t len,
                                   void **data_ret) {
-    const long page_size = sysconf(_SC_PAGE_SIZE);
-
     if (!rb->continous_memory) {
         return RINGBUF_DISCONTINOUS_MEMORY;
     }
 
-    if (len > page_size) {
+    if (len > get_page_size()) {
         return RINGBUF_TOO_LARGE;
     }
 
@@ -452,7 +454,7 @@ void test_ringbuf_writep_capacity(CuTest *tc) {
     enum offset_result ret = ringbuf_writep(&rb,
                                             rb.capacity,
                                             (void **) &writeptr);
-    for (int i = 0; i < rb.capacity; i ++) {
+    for (size_t i = 0; i < rb.capacity; i ++) {
         writeptr[i] = i;
     }
 

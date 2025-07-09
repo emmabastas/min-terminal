@@ -209,7 +209,12 @@ void rendering_calculate_sizes(int screen_height,
     // I think the -3555 is a result of the ligatures?
     // If so, then width: 1480 and height: 2400 giving is a ratio of ~61% which
     // seams resonable (60% is considered a good ratio for monospaced fonts).
-    int x0, y0, x1, y1;
+
+    // This is probably how we should do it..
+    //int x0, y0, x1, y1;
+    //stbtt_GetFontBoundingBox(&font_info, &x0, &y0, &x1, &y1);
+    // This is the typo that works..
+    int x0, y0, x1;
     stbtt_GetFontBoundingBox(&font_info, &x0, &y0, &x1, &y0);
 
     // But also stbtt_GetFontVMetrics gives us ascent, descent and line gap of
@@ -283,7 +288,8 @@ void rendering_render_cell(int xoffset, int yoffset, int row, int col,
 
     // Get glyph information and positions out of the buffer.
     hb_glyph_info_t *info = hb_buffer_get_glyph_infos(buf, NULL);
-    hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
+    //hb_glyph_position_t *pos = hb_buffer_get_glyph_positions(buf, NULL);
+    hb_buffer_get_glyph_positions(buf, NULL);
     hb_buffer_clear_contents(buf);
 
     int glyph_index = info->codepoint;
