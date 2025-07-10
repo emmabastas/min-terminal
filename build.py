@@ -48,7 +48,12 @@ common_flags = ["-std=c99", "-D", "_GNU_SOURCE", "-Wall", "-Wextra", "-Wpedantic
 #debug_flags = ["-g", "-Og", "-fsanitize=address", "-fsanitize=undefined", *common_flags]
 debug_flags = ["-g", "-Og", "-fsanitize=undefined", *common_flags]
 production_flags = ["-O3", *common_flags]
-unittest_flags = ["-D UNITTEST"]
+unittest_flags = [
+    "-D UNITTEST",
+    "-Wno-unused-variable",
+    "-fsanitize=address",
+    *common_flags,
+]
 includes = ["-I", "dist/", "-I", "dist/glad/include/"]
 
 memcheck_common_flags = [

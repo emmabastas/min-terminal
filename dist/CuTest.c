@@ -7,13 +7,35 @@
 
 #include "CuTest.h"
 
+#define ARENA_CAPACITY 10000
+static void **arena_buffer;
+static int count;
+
+void CuTestStart() {
+    count = 0;
+    arena_buffer = calloc(ARENA_CAPACITY, sizeof(void *));
+}
+
+void CuTestEnd() {
+    for (int i = 0; i < count; i++) {
+        free(arena_buffer[i]);
+    }
+}
+
+void *arena_malloc(size_t size) {
+    void *ptr = malloc(size);
+    arena_buffer[count] = ptr;
+    count ++;
+    return ptr;
+}
+
 /*-------------------------------------------------------------------------*
  * CuStr
  *-------------------------------------------------------------------------*/
 
 char* CuStrAlloc(int size)
 {
-	char* newStr = (char*) malloc( sizeof(char) * (size) );
+	char* newStr = (char*) arena_malloc( sizeof(char) * (size) );
 	return newStr;
 }
 
@@ -33,16 +55,16 @@ void CuStringInit(CuString* str)
 {
 	str->length = 0;
 	str->size = STRING_MAX;
-	str->buffer = (char*) malloc(sizeof(char) * str->size);
+	str->buffer = (char*) arena_malloc(sizeof(char) * str->size);
 	str->buffer[0] = '\0';
 }
 
 CuString* CuStringNew(void)
 {
-	CuString* str = (CuString*) malloc(sizeof(CuString));
+	CuString* str = (CuString*) arena_malloc(sizeof(CuString));
 	str->length = 0;
 	str->size = STRING_MAX;
-	str->buffer = (char*) malloc(sizeof(char) * str->size);
+	str->buffer = (char*) arena_malloc(sizeof(char) * str->size);
 	str->buffer[0] = '\0';
 	return str;
 }
@@ -121,7 +143,7 @@ void CuTestInit(CuTest* t, const char* name, TestFunction function)
 
 CuTest* CuTestNew(const char* name, TestFunction function)
 {
-	CuTest* tc = CU_ALLOC(CuTest);
+	CuTest* tc = arena_malloc(sizeof(CuTest));
 	CuTestInit(tc, name, function);
 	return tc;
 }
@@ -277,7 +299,7 @@ void CuSuiteInit(CuSuite* testSuite)
 
 CuSuite* CuSuiteNew(void)
 {
-	CuSuite* testSuite = CU_ALLOC(CuSuite);
+	CuSuite* testSuite = arena_malloc(sizeof(CuSuite));
 	CuSuiteInit(testSuite);
 	return testSuite;
 }
