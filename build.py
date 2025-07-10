@@ -44,7 +44,9 @@ unit_test_input_files = [
     "dist/glad/src/glx.c"
 ]
 common_flags = ["-std=c99", "-D", "_GNU_SOURCE", "-Wall", "-Wextra", "-Wpedantic", "-Werror"]
-debug_flags = ["-g", "-Og", "-fsanitize=address", *common_flags]
+# -fsanitize=address causes glXChooseFBConfig to return NULL for whatever reason..
+#debug_flags = ["-g", "-Og", "-fsanitize=address", "-fsanitize=undefined", *common_flags]
+debug_flags = ["-g", "-Og", "-fsanitize=undefined", *common_flags]
 production_flags = ["-O3", *common_flags]
 unittest_flags = ["-D UNITTEST"]
 includes = ["-I", "dist/", "-I", "dist/glad/include/"]
