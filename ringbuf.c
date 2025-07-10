@@ -265,7 +265,8 @@ void test_ringbuf_write_empty(CuTest *tc) {
     struct ringbuf rb;
     ringbuf_initialize(64, false, &rb);
 
-    ringbuf_write(&rb, NULL, 0);
+    int dummy = 0;
+    ringbuf_write(&rb, &dummy, 0);
 
     CuAssertIntEquals(tc, 0, rb.cursor);
     CuAssertIntEquals(tc, 64, rb.capacity);

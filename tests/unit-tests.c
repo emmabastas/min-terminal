@@ -4,6 +4,8 @@
 #include "../termbuf.h"
 
 int main(void) {
+    CuTestStart();
+
     CuString *output = CuStringNew();
     CuSuite *suite = CuSuiteNew();
 
@@ -14,6 +16,8 @@ int main(void) {
     CuSuiteSummary(suite, output);
     CuSuiteDetails(suite, output);
     printf("%s\n", output->buffer);
+
+    CuTestEnd();
 
     return 0;
 }

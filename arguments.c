@@ -120,7 +120,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case ARGP_KEY_FINI:
         return 0;
     default:
-        diagnostics_type(DIAGNOSTICS_MISC);
+        diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
         diagnostics_write_string("Unhandled option \'", -1);
         diagnostics_write_string((char *) &key, 1);
         diagnostics_write_string("\'\n", -1);

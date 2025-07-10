@@ -160,7 +160,6 @@ void termbuf_initialize(int nrows,
                         int ncols,
                         int pty_fd,
                         struct termbuf *tb_ret);
-
 void termbuf_free(struct termbuf *tb);
 
 // Parses bytes that we're sent by the shell, including things like C0, C1, and

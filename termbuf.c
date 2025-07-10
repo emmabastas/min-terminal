@@ -654,7 +654,7 @@ struct parser_table_entry parser_table[256 * NSTATES];
 
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
     while (len > 0) {
-        diagnostics_type(DIAGNOSTICS_TERM_PARSE_INPUT);
+        diagnostics_type(DIAGNOSTICS_TERM_PARSE_INPUT, __FILE__, __LINE__);
         diagnostics_write_string_escape_non_printable((char *) data, 1);
 
         size_t index = tb->p_state * 256 + *data;
@@ -679,7 +679,7 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
                 [P_STATE_OSC_ESC]          = "OSC_ESC",
             };
 
-            diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE);
+            diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE, __FILE__, __LINE__);
             diagnostics_write_string("\x1B[35m|", -1);
             diagnostics_write_string(STATE_STRING_MAP[entry.new_state], -1);
             diagnostics_write_string("|\x1B[m", -1);
@@ -1023,7 +1023,8 @@ void action_csi_chomp_start(struct termbuf *tb, char ch) {
 }
 
 void action_csi_chomp_initial_char(struct termbuf *tb, char ch) {
-    assert(ch == '?');
+    // ch in range `:;<=>?`
+    assert(ch >= ':' && ch <= '?');
     tb->p_data.ansi_csi_chomping.initial_char = '?';
 }
 
@@ -1195,7 +1196,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         if (ch == '~') { assert(false); }
 
         unknown_csi(tb, ch);
-        assert(false);
     }
 
     // Itermediate is "
@@ -1312,7 +1312,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         if (ch == '~') { assert(false); }
 
         unknown_csi(tb, ch);
-        assert(false);
     }
 
     // Select Set-Up Language (DECSSL)
@@ -1377,7 +1376,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         }
 
         unknown_csi(tb, ch);
-        assert(false);
     }
 
     // ESC n A, CUU, move cursor up
@@ -1521,9 +1519,10 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 // anyways so resetting DECSLCL is a no-op.
                 continue;
             default:
-                // some parameter is unhandelded.
-                printf("\nReset mode (RM), unhandeled parameter: %d\n", p);
-                assert(false);
+                // Reset mode (RM) unhandled paremeter
+                unknown_csi(tb, ch);
+                // Do nothing
+                return;
             }
         }
 
@@ -1545,7 +1544,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[6n "Device status report"
     // We transmit "ESC[n;mR" to the shell where n is row and m is column.
     if (len == 1 && p1 == 6 && ch == 'n') {
-        diagnostics_type(DIAGNOSTICS_TERM_RESPONSE);
+        diagnostics_type(DIAGNOSTICS_TERM_RESPONSE, __FILE__, __LINE__);
         diagnostics_write_string("\n\x1B[36mGot a ESC[6n (device status "
                                  "report) from the shell. Responding with \n"
                                  "\"ESC[", -1);
@@ -1944,7 +1943,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     }
 
     unknown_csi(tb, ch);
-    assert(false);
 }
 
 void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
@@ -2012,12 +2010,11 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         flag = FLAG_BRACKETED_PASTE_MODE;
         break;
     default:
-        printf("\nWe got a sequence of the form ESC[?%d%c. But we don't know "
-               "how to handle parameter %d.\n",
-               data->params[0],
-               final_byte,
-               data->params[0]);
-        assert(false);
+        diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+        // Sequence of form ESC[?<param> with unknown parameter
+        unknown_csi(tb, final_byte);
+        // Do nothing
+        return;
     }
 
     if (final_byte == 'h') {
@@ -2030,7 +2027,6 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
     }
 
     unknown_csi(tb, final_byte);
-    assert(false);
 }
 
 void unknown_csi(struct termbuf *tb, char ch) {
@@ -2049,24 +2045,30 @@ void unknown_csi(struct termbuf *tb, char ch) {
     uint16_t p4 = data->params[3];
     uint16_t p5 = data->params[4];
 
-    printf("\n"
-           "Got an unknown ANSI escape sequence with:\n"
-           "    ch            : '%c' (decimal %d).\n"
-           "    initial_char  : '%c' (decimal %d).\n"
-           "    current_param : %d.\n"
-           "    len           : %d.\n"
-           "    param1        : %d.\n"
-           "    param2        : %d.\n"
-           "    param3        : %d.\n"
-           "    param4        : %d.\n"
-           "    param5        : %d.\n"
-           "    intermediate  : '%c' (decimal %d).\n",
-           ch, ch,
-           ic, ic,
-           data->current_param,
-           len,
-           p1, p2, p3, p4, p5,
-           intermediate, intermediate);
+    diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+    char buf[1024];
+    int written = snprintf(buf,
+             1024,
+             "\n"
+             "Got an unknown ANSI escape sequence with:\n"
+             "    ch            : '%c' (decimal %d).\n"
+             "    initial_char  : '%c' (decimal %d).\n"
+             "    current_param : %d.\n"
+             "    len           : %d.\n"
+             "    param1        : %d.\n"
+             "    param2        : %d.\n"
+             "    param3        : %d.\n"
+             "    param4        : %d.\n"
+             "    param5        : %d.\n"
+             "    intermediate  : '%c' (decimal %d).\n",
+             ch, ch,
+             ic, ic,
+             data->current_param,
+             len,
+             p1, p2, p3, p4, p5,
+             intermediate, intermediate);
+    assert(written < 1024);
+    diagnostics_write_string(buf, written);
 }
 
 void action_osc_chomp_start(struct termbuf *tb, char ch) {
@@ -2344,15 +2346,14 @@ table = [
   [ P_STATE_CSI, r(0, 0x1F)       , P_STATE_GROUND, action_fail               ],
   # Got an "intermediate" byte
   [ P_STATE_CSI_PARAMS, r(0x20, 0x2F), P_STATE_CSI_INTERMEDIATE, action_csi_intermediate],
-  # Got a character 0-9.
-  [ P_STATE_CSI, r(0x30 , 57), P_STATE_CSI_PARAMS, action_csi_chomp_param       ],
-  # Got something unexpected
-  [ P_STATE_CSI, r(58 , 62)       , P_STATE_GROUND, action_fail               ],
-  # Got a '?' has the initial char
-  [ P_STATE_CSI, [ 63 ], P_STATE_CSI_PARAMS, action_csi_chomp_initial_char ],
+  # Got a paremeter byte 0-9.
+  [ P_STATE_CSI, r(0x30 , 0x39), P_STATE_CSI_PARAMS, action_csi_chomp_param   ],
+  # Got a parameter byte `:;<=>?`, we we treat as an "initial" char.
+  [ P_STATE_CSI, r(0x3A , 0x3F), P_STATE_CSI_PARAMS, action_csi_chomp_initial_char],
   # Got a "final byte".
-  [ P_STATE_CSI_PARAMS, r(64, 126), P_STATE_GROUND, action_csi_chomp_final_byte],
-  [ P_STATE_CSI, r(127, 255)      , P_STATE_GROUND, action_fail               ],
+  [ P_STATE_CSI_PARAMS, r(0x40, 0x7E), P_STATE_GROUND, action_csi_chomp_final_byte],
+  # Got something unexpected.
+  [ P_STATE_CSI, r(0x7F, 0xFF)       , P_STATE_GROUND, action_fail            ],
 
 
   ######################
@@ -5627,16 +5628,16 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
       .action = &action_csi_chomp_param, },
     { .new_state = P_STATE_CSI_PARAMS,
       .action = &action_csi_chomp_param, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
+    { .new_state = P_STATE_CSI_PARAMS,
+      .action = &action_csi_chomp_initial_char, },
     { .new_state = P_STATE_CSI_PARAMS,
       .action = &action_csi_chomp_initial_char, },
     { .new_state = P_STATE_GROUND,

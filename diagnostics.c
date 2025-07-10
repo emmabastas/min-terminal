@@ -12,12 +12,26 @@ static bool matches;
 static const int MASK = DIAGNOSTICS_ALL;
 
 void diagnostics_initialize(void) {
-    diagnostics_type(DIAGNOSTICS_MISC);
+    diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
 }
 
-void diagnostics_type(enum diagnostics_type_e t) {
+void diagnostics_type(enum diagnostics_type_e t, char *filename, int line) {
     current_type = t;
     matches = (MASK & t) != 0;
+    if (!matches) {
+        return;
+    }
+
+    char *s = "";
+    switch(t) {
+    case DIAGNOSTICS_TERM_CODE_ERROR:
+        s = "\x1B[34mCODE_ERROR> \x1B[0m";
+        break;
+    default:
+        return;
+    }
+    fprintf(stderr, "\n%s:%d ", filename, line);
+    fwrite(s, sizeof(char), strlen(s), stderr);
 }
 
 void diagnostics_write_string(const char *s, int len) {

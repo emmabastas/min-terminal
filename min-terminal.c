@@ -311,7 +311,7 @@ void render() {
 
  */
 void event_loop() {
-    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
     diagnostics_write_string("\x1B[31mEntering event_loop\n\x1B[m", -1);
 
     // TODO: Better to do this in `win_attributes.event_mask`? Ideally I'd want
@@ -377,7 +377,7 @@ void event_loop() {
             while(true) { usleep(1000); }
         }
 
-        diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+        diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
         diagnostics_write_string("\x1B[31m>About to `poll`...\n", -1);
 
         // No performance benefits to to using `epoll` instead.
@@ -400,7 +400,7 @@ void event_loop() {
 }
 
 void handle_primary_pty_input() {
-    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
     diagnostics_write_string("\x1B[31mhandle_primary_pty_input\x1B[m\n", -1);
 
     #define BUFSIZE 4096
@@ -443,7 +443,7 @@ void handle_primary_pty_input() {
 }
 
 void handle_x11_event() {
-    diagnostics_type(DIAGNOSTICS_EVENT_LOOP);
+    diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
     diagnostics_write_string("\x1B[31mhandle_x11_event\x1B[m\n", -1);
 
     // See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in
@@ -534,7 +534,7 @@ void handle_x11_event() {
                                       &nrows,
                                       &ncols);
 
-            diagnostics_type(DIAGNOSTICS_X11_EVENT);
+            diagnostics_type(DIAGNOSTICS_X11_EVENT, __FILE__, __LINE__);
             diagnostics_write_string("New row:col ", -1);
             diagnostics_write_int(nrows);
             diagnostics_write_string(" ", -1);
@@ -629,7 +629,7 @@ int main(int argc, char **argv) {
     arguments_parse(argc, argv, &args);
 
     display = XOpenDisplay(NULL);
-    if (!display) { assert(false); }
+    if (display == NULL) { assert(false); }
 
     screen = DefaultScreen(display);
     int root = DefaultRootWindow(display);
@@ -884,7 +884,7 @@ int main(int argc, char **argv) {
     }
     printf("The pty is in %s.\n", primary_pty_name);
 
-    diagnostics_type(DIAGNOSTICS_MISC);
+    diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
     diagnostics_write_string("execvp(\"", -1);
     diagnostics_write_string(args.program_path, -1);
     diagnostics_write_string("\", <argv>);", -1);
