@@ -16,9 +16,13 @@
 {
   description = "";
 
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    my-nixpkgs.url = "git+ssh://gitea@tea.notadev.net:3243/emmabastas/my-nixpkgs.git";
+    nixpkgs.follows = "my-nixpkgs/nixpkgs-unstable";
+    flake-utils.follows = "my-nixpkgs/flake-utils";
+  };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let pkgs = nixpkgs.legacyPackages.${system}; in
