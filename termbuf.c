@@ -663,7 +663,7 @@ struct parser_table_entry parser_table[256 * NSTATES];
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
     while (len > 0) {
         diagnostics_type(DIAGNOSTICS_TERM_PARSE_INPUT, __FILE__, __LINE__);
-        diagnostics_write_string_escape_non_printable((char *) data, 1);
+        diagnostics_printfe((char *) data, 1);
 
         size_t index = tb->p_state * 256 + *data;
         struct parser_table_entry entry = parser_table[index];
@@ -688,9 +688,8 @@ void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len) {
             };
 
             diagnostics_type(DIAGNOSTICS_TERM_PARSE_STATE, __FILE__, __LINE__);
-            diagnostics_write_string("\x1B[35m|", -1);
-            diagnostics_write_string(STATE_STRING_MAP[entry.new_state], -1);
-            diagnostics_write_string("|\x1B[m", -1);
+            diagnostics_printfe("\x1B[35m|%s|\x1B[m",
+                                STATE_STRING_MAP[entry.new_state]);
         }
 
         tb->p_state = entry.new_state;
@@ -1596,15 +1595,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // ESC[6n "Device status report"
     // We transmit "ESC[n;mR" to the shell where n is row and m is column.
     if (len == 1 && p1 == 6 && ch == 'n') {
-        diagnostics_type(DIAGNOSTICS_TERM_RESPONSE, __FILE__, __LINE__);
-        diagnostics_write_string("\n\x1B[36mGot a ESC[6n (device status "
-                                 "report) from the shell. Responding with \n"
-                                 "\"ESC[", -1);
-        diagnostics_write_int(tb->row);
-        diagnostics_write_string(";", -1);
-        diagnostics_write_int(tb->col);
-        diagnostics_write_string("R\" to the shell.\x1B[0m\n", -1);
-
         min_terminal_write_to_shellf(tb->pty_fd, "\x1B[%d;%dR", tb->row, tb->col);
         return;
     }
@@ -2034,7 +2024,7 @@ void csi_dec_mode_set(struct termbuf *tb, char final_byte) {
             }
 
             diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
-            diagnostics_write_string("CSI 4 h (DECSLCL) is not implemented", -1);
+            diagnostics_printf("CSI 4 h (DECSLCL) is not implemented");
 
             if (ON_UNKNOWN_SEQUENCE == FAIL) {
                 exit(-1);
@@ -2048,7 +2038,7 @@ void csi_dec_mode_set(struct termbuf *tb, char final_byte) {
             }
 
             diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
-            diagnostics_write_string("CSI 20 h (Automatic newline LNM) is not implemented", -1);
+            diagnostics_printf("CSI 20 h (Automatic newline LNM) is not implemented");
 
             if (ON_UNKNOWN_SEQUENCE == FAIL) {
                 exit(-1);
@@ -2121,7 +2111,7 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         }
 
         diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
-        diagnostics_write_string("CSI ? 41 h (more fix) is not implemented", -1);
+        diagnostics_printf("CSI ? 41 h (more fix) is not implemented");
 
         if (ON_UNKNOWN_SEQUENCE == FAIL) {
             exit(-1);
@@ -2144,7 +2134,7 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         }
 
         diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
-        diagnostics_write_string("CSI ? 69 h (DECSLRM) is not implemented", -1);
+        diagnostics_printf("CSI ? 69 h (DECSLRM) is not implemented");
 
         if (ON_UNKNOWN_SEQUENCE == FAIL) {
             exit(-1);
@@ -2223,7 +2213,7 @@ void csi_title_mode_set(struct termbuf *tb, char final_byte) {
         }
 
         diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
-        diagnostics_write_string("csi_title_mode_set unexpected parameter", -1);
+        diagnostics_printf("csi_title_mode_set unexpected parameter");
 
         if (ON_UNKNOWN_SEQUENCE == FAIL) {
             exit(-1);
@@ -2271,7 +2261,7 @@ void unknown_csi(struct termbuf *tb, char ch, char *fname, int line) {
              p1, p2, p3, p4, p5,
              intermediate, intermediate);
     assert(written < 1024);
-    diagnostics_write_string(buf, written);
+    diagnostics_printf(buf, written);
 }
 
 void action_osc_chomp_start(struct termbuf *tb, char ch) {

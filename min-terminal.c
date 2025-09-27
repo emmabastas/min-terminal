@@ -313,7 +313,7 @@ void render() {
  */
 void event_loop() {
     diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
-    diagnostics_write_string("\x1B[31mEntering event_loop\n\x1B[m", -1);
+    diagnostics_printf("\x1B[31mEntering event_loop\n\x1B[m");
 
     // TODO: Better to do this in `win_attributes.event_mask`? Ideally I'd want
     //       the events mask to be tightly coupled with `handle_x11_events`..
@@ -379,14 +379,14 @@ void event_loop() {
         }
 
         diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
-        diagnostics_write_string("\x1B[31m>About to `poll`...\n", -1);
+        diagnostics_printf("\x1B[31m>About to `poll`...\n");
 
         // No performance benefits to to using `epoll` instead.
         ret = poll(pollfds, N_EVENT_TYPES, -1);  // -1 means infinite timeout.
         assert(ret != -1);  // means an error occured.
         assert(ret != 0);  // means we timed out which we shouldn't have done.
 
-        diagnostics_write_string("<Done polling\n\x1B[m", -1);
+        diagnostics_printf("<Done polling\n\x1B[m");
 
         for (int i = 0; i < N_EVENT_TYPES; i++) {
             assert((pollfds[i].revents & POLLERR)  == 0);
@@ -402,7 +402,7 @@ void event_loop() {
 
 void handle_primary_pty_input() {
     diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
-    diagnostics_write_string("\x1B[31mhandle_primary_pty_input\x1B[m\n", -1);
+    diagnostics_printf("\x1B[31mhandle_primary_pty_input\x1B[m\n");
 
     #define BUFSIZE 4096
     uint8_t buf[BUFSIZE];
@@ -445,7 +445,7 @@ void handle_primary_pty_input() {
 
 void handle_x11_event() {
     diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
-    diagnostics_write_string("\x1B[31mhandle_x11_event\x1B[m\n", -1);
+    diagnostics_printf("\x1B[31mhandle_x11_event\x1B[m\n");
 
     // See POLLING IN EVENT LOOP WITHOUT X11 RELATED BUGS section in
     // `event_loop` doc comment for rationale.
@@ -532,11 +532,7 @@ void handle_x11_event() {
                                       &ncols);
 
             diagnostics_type(DIAGNOSTICS_X11_EVENT, __FILE__, __LINE__);
-            diagnostics_write_string("New row:col ", -1);
-            diagnostics_write_int(nrows);
-            diagnostics_write_string(" ", -1);
-            diagnostics_write_int(ncols);
-            diagnostics_write_string("\n", -1);
+            diagnostics_printf("New row:col %d:%d", nrows, ncols);
 
             termbuf_resize(&tb, nrows, ncols);
 
@@ -905,9 +901,7 @@ int main(int argc, char **argv) {
     printf("The pty is in %s.\n", primary_pty_name);
 
     diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
-    diagnostics_write_string("execvp(\"", -1);
-    diagnostics_write_string(args.program_path, -1);
-    diagnostics_write_string("\", <argv>);", -1);
+    diagnostics_printf("execvp(\"%s\", <argv>);", args.program_path);
     diagnostics_flush();
 
     pid_t pid = fork();

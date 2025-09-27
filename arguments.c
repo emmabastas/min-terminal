@@ -121,9 +121,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         return 0;
     default:
         diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
-        diagnostics_write_string("Unhandled option \'", -1);
-        diagnostics_write_string((char *) &key, 1);
-        diagnostics_write_string("\'\n", -1);
+        diagnostics_printf("Unhandled option \'%c\'\n", key);
         assert(false);
     }
 }
