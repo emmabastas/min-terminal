@@ -259,7 +259,7 @@ void render() {
     is the server) communicate via a single TCP socket where many types of data
     flow through. One such type is events: The x11 server writes some data to
     the socket when a key is pressed for instance, and the Xlib reads this data,
-    converts it into a XKeyPressedEvent and put's into into it's event queue.
+    converts it into a XKeyPressedEvent and puts it into it's event queue.
     When we poll in our event loop we poll on that very TCP socket, the way it's
     intended to go follows now:
     1) Perform poll
@@ -281,10 +281,10 @@ void render() {
     c) The `primary_pty_fd` now has data so we wake-up from our poll and end up
        calling `handle_primary_pty_input`
     d) While `handle_primary_pty_input` is executed the x11 server writes to
-       the socket (step (2) above), we have htis data:
+       the socket (step (2) above), we have this data:
            socket: [<event data>]    event queue: []
     e) Now `handle_primary_pty_input` issues some x11 request via an Xlib,
-       function call what, happens under the hood is that Xlib writes to the
+       function call. What happens under the hood is that Xlib writes to the
        socket which the x11 server is listening to, it then blocks while waiting
        for a response,
     f) The server responds:
