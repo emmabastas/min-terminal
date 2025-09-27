@@ -104,7 +104,8 @@ union parser_data {
         uint16_t len;           // the number of bytes in the sequence
     } ansi_nf_chomping;
     struct ansi_csi_chomping {
-        uint8_t  initial_char;  // one of '\0' (no initial char) or '?'
+        uint8_t  initial_char;  // one of `:;<=>?` or '\0' if there is no
+                                // initial char.
         uint8_t  current_param;
         // if a param is -1 (i.e. largest uint16_t) then we interpret it as
         // missing, for instance ESC[;10H would give something like:
@@ -178,7 +179,6 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len);
 void termbuf_shift(struct termbuf *tb);
 
 void termbuf_resize(struct termbuf *tb, int nnrows, int nncols);
-
 
 void termbuf_scrollback_push_row(struct termbuf *tb,
                                  struct termbuf_char *data,

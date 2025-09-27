@@ -3,9 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <assert.h>
 
+#include "./min-terminal.h"
 #include "./diagnostics.h"
 #include "./util.h"
 #include "./CuTest.h"
@@ -20,8 +22,14 @@
 
 
 
-void unknown_csi(struct termbuf *tb, char final_byte);
+#define FAIL 1
+#define IGNORE 2
+static const bool ON_UNKNOWN_SEQUENCE = FAIL;
+
+void unknown_csi(struct termbuf *tb, char final_byte, char *file, int line);
+void csi_dec_mode_set(struct termbuf *tb, char final_byte);
 void csi_dec_private_mode_set(struct termbuf *tb, char final_byte);
+void csi_title_mode_set(struct termbuf *tb, char final_byte);
 
 
 
@@ -1025,7 +1033,7 @@ void action_csi_chomp_start(struct termbuf *tb, char ch) {
 void action_csi_chomp_initial_char(struct termbuf *tb, char ch) {
     // ch in range `:;<=>?`
     assert(ch >= ':' && ch <= '?');
-    tb->p_data.ansi_csi_chomping.initial_char = '?';
+    tb->p_data.ansi_csi_chomping.initial_char = ch;
 }
 
 void action_csi_chomp_param(struct termbuf *tb, char ch) {
@@ -1111,13 +1119,21 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // uint16_t p4 = data->params[3];
     // uint16_t p5 = data->params[4];
 
-    // ESC[?<p>h ESC[?<p>l
+    // Set / reset DEC private modes
+    // CSI ? Ps h / CSP ? Ps l
     // See `void csi_dec_private_mode_set` for documentation on these types of
     // sequences.
     if (ic == '?' && (ch == 'h' || ch == 'l')) {
         assert(len == 1);  // I think all of these sequences always have exactly
-                           // ine parameter.
+                           // one parameter.
         csi_dec_private_mode_set(tb, ch);
+        return;
+    }
+
+    // Set / reset title modes.
+    // CSI > Pm t or CSI > Pm T
+    if (ic == '>' && (ch == 't' || ch == 'T' )) {
+        csi_title_mode_set(tb, ch);
         return;
     }
 
@@ -1195,7 +1211,11 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         // ???
         if (ch == '~') { assert(false); }
 
-        unknown_csi(tb, ch);
+        unknown_csi(tb, ch, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
     }
 
     // Itermediate is "
@@ -1311,7 +1331,40 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         // ???
         if (ch == '~') { assert(false); }
 
-        unknown_csi(tb, ch);
+        unknown_csi(tb, ch, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
+    }
+
+    // Tab Clear (TBC)
+    // CSI Ps g
+    // https://terminalguide.namepad.de/seq/csi_sg/
+    if (ch == 'g') {
+        // This clears tabulation stops. We have not implemented that so we can
+        // ignore it.
+
+        assert(len <= 1);
+        uint16_t p = len == 0 ? 0 : p1;
+
+        // Clear current line.
+        if (p == 0) {
+            return;
+        }
+
+        // Clear all tabulation stops
+        if (p == 3) {
+            return;
+        }
+
+        unknown_csi(tb, ch, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
     }
 
     // Select Set-Up Language (DECSSL)
@@ -1326,9 +1379,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // Set Left and Right Margins (DECSLRM)
     // https://vt100.net/docs/vt510-rm/DECSLRM.html
     if (ch == 's') { /* TODO */ assert(false); }
-    // Set Lines per Physical Page (DECSLPP)
-    // https://vt100.net/docs/vt510-rm/DECSLPP.html
-    if (ch == 't' && len <= 1) { /* TODO */ assert(false); }
     // Set Horizontal Tabulation Stops (DECSHTS)
     // https://vt100.net/docs/vt510-rm/DECSHTS.html
     if (ch == 'u') { /* TODO */ assert(false); }
@@ -1361,10 +1411,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
 
 
     // Window manipulation (XTWINOPS)
+    // CSI Pm t
     // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps;Ps;Ps-t.1EB0
     // How to tell when to use this vs DECSLPP?
-    if (ch == 't' && 1 <= len && len <= 3) {
-        if (p1 == 8) {
+    if (ch == 't') {
+        // CSI 1 ; Ps; Ps t
+        // Resize text area to given width and height.
+        // Parameter ommited => use current width / height.
+        // Parameter is 0 => use max width / height possible.
+        if (len >= 1 && p1 == 8) {
             uint16_t nnrows = len < 2 ? tb->nrows : p2;
             uint16_t nncols = len < 3 ? tb->ncols : p3;
 
@@ -1375,7 +1430,28 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             return;
         }
 
-        unknown_csi(tb, ch);
+        // Report the size of the text area in characters.
+        // Result is CSI  8 ;  height ;  width t
+        if (len == 1 && p1 == 18) {
+            min_terminal_write_to_shellf(tb->pty_fd, "\x1B[%d;%d8", tb->nrows, tb->ncols);
+            return;
+        }
+
+        // CSI 23 ; Ps t
+        // These are all related to pushing and popping window titles and icons
+        // to /from on a stack. Since we're not interested in implementing this
+        // we just ignore.
+        if (len >= 1 && p1 == 23) {
+            assert(p2 <= 2);
+            return;
+        }
+
+        unknown_csi(tb, ch, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
     }
 
     // ESC n A, CUU, move cursor up
@@ -1499,33 +1575,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC[<p₁>;...l Reset mode (RM).
-    // See: https://vt100.net/docs/vt510-rm/RM.html
-    if (ch == 'l') {
-        // You use this sequence to reset either ANSI modes (?) or DEC modes (?)
-        // This table:
-        //    https://vt100.net/docs/vt510-rm/DECRQM.html#T5-8
-        // contains DEC modes and their corresponding parameter.
-
-        // We iterate through each parameter as it specifices a mode to reset.
-        for (int i = 0; i < len; i++) {
-            uint16_t p = data->params[i];
-
-            switch(p) {
-            // Reset scrolling (DECSCLM)
-            // See: https://vt100.net/docs/vt510-rm/DECSCLM.html
-            case 4:
-                // As the situation is right now we haven't implemented DECSCLM
-                // anyways so resetting DECSLCL is a no-op.
-                continue;
-            default:
-                // Reset mode (RM) unhandled paremeter
-                unknown_csi(tb, ch);
-                // Do nothing
-                return;
-            }
-        }
-
+    // CSI Pm h / CSI Pm l Set mode (SM) / Reset mode (RM).
+    if (ch == 'l' || ch == 'h') {
+        csi_dec_mode_set(tb, ch);
         return;
     }
 
@@ -1553,8 +1605,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         diagnostics_write_int(tb->col);
         diagnostics_write_string("R\" to the shell.\x1B[0m\n", -1);
 
-        dprintf(tb->pty_fd, "\x1B[%d;%dR", tb->row, tb->col);
-        fsync(tb->pty_fd);
+        min_terminal_write_to_shellf(tb->pty_fd, "\x1B[%d;%dR", tb->row, tb->col);
         return;
     }
 
@@ -1942,12 +1993,83 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    unknown_csi(tb, ch);
+    unknown_csi(tb, ch, __FILE__, __LINE__);
+
+    if (ON_UNKNOWN_SEQUENCE == FAIL) {
+        exit(-1);
+    }
+    return;
+}
+
+void csi_dec_mode_set(struct termbuf *tb, char final_byte) {
+    // This function is called whenever
+    //   CSI Pm h
+    // or
+    //   CSI ? pm l
+    // is encontered (Set Mode SM resp. Reset mode RM).
+    // They are for settings DEC modes.
+    // See `csi_dev_private_mode_set` for more info.
+
+    assert(final_byte == 'h' || final_byte == 'l');
+
+    struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+
+    assert(data->initial_char == '\0');
+
+    for (int i = 0; i < CSI_CHOMPING_MAX_PARAMS; i++) {
+        const uint16_t param = data->params[i];
+
+        // No more params.
+        if (param == UINT16_MAX) {
+            break;
+        }
+
+        switch (param) {
+        case 4:
+            // Reset scrolling (DECSCLM)
+            // See: https://vt100.net/docs/vt510-rm/DECSCLM.html
+
+            if (final_byte == 'l') {
+                continue;
+            }
+
+            diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+            diagnostics_write_string("CSI 4 h (DECSLCL) is not implemented", -1);
+
+            if (ON_UNKNOWN_SEQUENCE == FAIL) {
+                exit(-1);
+            }
+            continue;
+        case 20:
+            // Automatic newline mode (LNM)
+
+            if (final_byte == 'l') {
+                continue;
+            }
+
+            diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+            diagnostics_write_string("CSI 20 h (Automatic newline LNM) is not implemented", -1);
+
+            if (ON_UNKNOWN_SEQUENCE == FAIL) {
+                exit(-1);
+            }
+            continue;
+        default:
+            unknown_csi(tb, final_byte, __FILE__, __LINE__);
+
+            if (ON_UNKNOWN_SEQUENCE == FAIL) {
+                exit(-1);
+            }
+            return;
+        }
+    }
 }
 
 void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
     // This function is called whenever an escape sequence of the form
-    //     ESC[?<p>h or ESC[?<p>l
+    //     CSI ? Pm h
+    // or
+    //     CSI ? Pm l
     // is found. These function are for setting and unsetting "DEC Private
     // modes".. I think "private" means roughly that these types of modes
     // werent't part of any sort of standard. Of course many of these modes have
@@ -1964,7 +2086,6 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
     // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-?-Pm-h.1D0E
 
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
-
     assert(data->initial_char == '?');
     assert(final_byte == 'h' || final_byte == 'l');
     assert(data->params[0] != (uint16_t) -1);
@@ -1990,10 +2111,45 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
     case 25:
         flag = FLAG_DECTCEM;
         break;
+    case 41:
+        // Some niche setting on wheter a curses bug in a CLI utility called `more`
+        // should be "worked around". Default is false, which I guess means that
+        // there should be no specific behaviour
+
+        if (final_byte == 'l') {
+            break;
+        }
+
+        diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+        diagnostics_write_string("CSI ? 41 h (more fix) is not implemented", -1);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
     case 47:
         // same as 1047??
         // TODO
         break;
+    case 69:
+        // Ps = 6 9  ⇒  Enable left and right margin mode (DECLRMM)
+        // https://vt100.net/docs/vt510-rm/DECLRMM.html
+        // This determines wheter or not it should be possible to set margins
+        // on the terminal (with DECSLRM).
+        // We are not interested in having any such margin functionality so we
+        // do nothing / fail if the final byte is 'h'
+
+        if (final_byte == 'l') {
+            break;
+        }
+
+        diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+        diagnostics_write_string("CSI ? 69 h (DECSLRM) is not implemented", -1);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
     case 1047:
         // Use normal/alternate screen buffer.
         // TODO
@@ -2010,10 +2166,12 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         flag = FLAG_BRACKETED_PASTE_MODE;
         break;
     default:
-        diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
         // Sequence of form ESC[?<param> with unknown parameter
-        unknown_csi(tb, final_byte);
-        // Do nothing
+        unknown_csi(tb, final_byte, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
         return;
     }
 
@@ -2026,10 +2184,55 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         return;
     }
 
-    unknown_csi(tb, final_byte);
+    unknown_csi(tb, final_byte, __FILE__, __LINE__);
+
+    if (ON_UNKNOWN_SEQUENCE == FAIL) {
+        exit(-1);
+    }
 }
 
-void unknown_csi(struct termbuf *tb, char ch) {
+/*
+  Title modes: The terminal can use the historic ISO-8859-1 encoding or the
+  modern UTF-8 encoding for things like terminal titles. These encodings are
+  used both when the terminal sets and reports back titles etc.
+
+  Title modes decide which encoding is used by the terminal. Since we want to
+  keep it simple we'll only support UTF8 (and break compliance), so we ignore
+  these instructions.
+
+  See https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Title-Modes
+ */
+void csi_title_mode_set(struct termbuf *tb, char final_byte) {
+    assert(final_byte == 'T' || final_byte == 't');
+
+    struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
+
+    assert(data->initial_char == '>');
+
+    for (int i = 0; i < CSI_CHOMPING_MAX_PARAMS; i++) {
+        const uint16_t param = data->params[i];
+
+        // No more params.
+        if (param == UINT16_MAX) {
+            break;
+        }
+
+        // Param is in expected range
+        if (param <= 4) {
+            continue;
+        }
+
+        diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+        diagnostics_write_string("csi_title_mode_set unexpected parameter", -1);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        continue;
+    }
+}
+
+void unknown_csi(struct termbuf *tb, char ch, char *fname, int line) {
     struct ansi_csi_chomping *data = &tb->p_data.ansi_csi_chomping;
     uint8_t ic  = data->initial_char;
     uint8_t intermediate = data->intermediate;
@@ -2045,7 +2248,7 @@ void unknown_csi(struct termbuf *tb, char ch) {
     uint16_t p4 = data->params[3];
     uint16_t p5 = data->params[4];
 
-    diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+    diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, fname, line);
     char buf[1024];
     int written = snprintf(buf,
              1024,
