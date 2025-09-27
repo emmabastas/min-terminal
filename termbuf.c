@@ -1432,7 +1432,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         // Report the size of the text area in characters.
         // Result is CSI  8 ;  height ;  width t
         if (len == 1 && p1 == 18) {
-            min_terminal_write_to_shellf(tb->pty_fd, "\x1B[%d;%d8", tb->nrows, tb->ncols);
+            min_terminal_write_to_shellf(tb->pty_fd, "\x1B[8;%d;%d", tb->nrows, tb->ncols);
             return;
         }
 
