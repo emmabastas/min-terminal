@@ -2,6 +2,7 @@
 #define INCLUDED_DIAGNOSTICS_H
 
 #include <stddef.h>
+#include <stdarg.h>
 
 enum diagnostics_type_e {
     DIAGNOSTICS_MISC             = 1 << 0,
@@ -20,6 +21,12 @@ void diagnostics_type(enum diagnostics_type_e, char *filename, int line);
 void diagnostics_write_string(const char *s, int len);
 void diagnostics_write_string_escape_non_printable(const char *data, int len);
 void diagnostics_write_int(int n);
+void diagnostics_printf(const char *format, ...)
+    __attribute__((format(printf, 1, 2)));
+void diagnostics_vprintf(const char *format, va_list argp);
+void diagnostics_printfe(const char *format, ...)
+    __attribute__((format(printf, 1, 2)));
+void diagnostics_vprintfe(const char *format, va_list argp);
 void diagnostics_flush(void);
 
 #endif /* INCLUDED_DIAGNOSTICS_H */

@@ -11,6 +11,10 @@ static int current_type;
 static bool matches;
 static const int MASK = DIAGNOSTICS_ALL;
 
+// Temporary buffer used to avoid malloc etc.
+#define DIAGNOSTICS_TMP_BUF_SIZE 1024
+static char DIAGNOSTICS_TMP_BUF[DIAGNOSTICS_TMP_BUF_SIZE];
+
 void diagnostics_initialize(void) {
     diagnostics_type(DIAGNOSTICS_MISC, __FILE__, __LINE__);
 }
@@ -84,6 +88,56 @@ void diagnostics_write_int(int n) {
         return;
     }
     fprintf(stderr, "%d", n);
+}
+
+void diagnostics_printfe(const char *format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    diagnostics_vprintfe(format, argp);
+    va_end(argp);
+}
+
+void diagnostics_vprintfe(const char *format, va_list argp) {
+    if (!matches) {
+        return;
+    }
+
+    int did_write = vsnprintf(DIAGNOSTICS_TMP_BUF,
+                              DIAGNOSTICS_TMP_BUF_SIZE,
+                              format,
+                              argp);
+
+    // Output was truncated.
+    if (did_write >= DIAGNOSTICS_TMP_BUF_SIZE) {
+        assert(false);
+    }
+
+    // Error occured.
+    if (did_write == -1) {
+        assert(false);
+    }
+
+    diagnostics_write_string_escape_non_printable(DIAGNOSTICS_TMP_BUF, did_write);
+}
+
+void diagnostics_printf(const char *format, ...) {
+    va_list argp;
+    va_start(argp, format);
+    diagnostics_vprintf(format, argp);
+    va_end(argp);
+}
+
+void diagnostics_vprintf(const char *format, va_list argp) {
+    if (!matches) {
+        return;
+    }
+
+    const int ret = vprintf(format, argp);
+
+    // Error occured.
+    if (ret == -1) {
+        assert(false);
+    }
 }
 
 void diagnostics_flush(void) {
