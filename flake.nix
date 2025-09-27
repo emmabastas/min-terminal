@@ -43,7 +43,6 @@
                 pyflakes # syntax checking
                 pycodestyle # style linting
                 pylsp-mypy # type checking
-                future # solves https://github.com/tomv564/pyls-mypy/issues/37
               ]))
             ];
           };
