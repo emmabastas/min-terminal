@@ -72,6 +72,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -471,9 +472,7 @@ void handle_x11_event() {
             // Let the shell know that we gained focus
             // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-FocusIn_FocusOut
             if (!window_focused) {
-                printf("\x1B[36mTransmitting \"ESC[I\" to shell.\x1B[0m\n");
-                int did_write = write(primary_pty_fd, "\x1B[I", 3);
-                assert(did_write != -1);
+                min_terminal_write_to_shellf(primary_pty_fd, "\x1B[I");
             }
             window_focused = true;
             continue;
@@ -482,9 +481,7 @@ void handle_x11_event() {
         if (event.type == FocusOut) {
             printf("\n\x1B[36m> FocusOut event\x1B[0m\n");
             if (window_focused) {
-                printf("\x1B[36mTransmitting \"ESC[O\" to shell.\x1B[0m\n");
-                int did_write = write(primary_pty_fd, "\x1B[O", 3);
-                assert(did_write != -1);
+                min_terminal_write_to_shellf(primary_pty_fd, "\x1B[O");
             }
             window_focused = false;
             continue;
@@ -619,6 +616,29 @@ void min_terminal_scroll_backward() {
     tb.scroll_position += 6;
     // TODO: Dont scroll too far.
     render();
+}
+
+int min_terminal_write_to_shellf(int pty_fd, const char *format, ...) {
+    va_list ap1, ap2;
+    va_start(ap1, format);
+    va_copy(ap2, ap1);
+
+    diagnostics_type(DIAGNOSTICS_TERM_RESPONSE, __FILE__, __LINE__);
+    diagnostics_printf("\x1B[36mTransmitting:\x1B[0m\n");
+    diagnostics_vprintfe(format, ap1);
+    va_end(ap1);
+    diagnostics_printf("\n\x1B[36mto the shell\x1B[0m\n");
+
+    const int did_write = vdprintf(pty_fd, format, ap2);
+    va_end(ap2);
+    fsync(pty_fd);
+
+    // Error occured
+    if (did_write < 0) {
+        assert(false);
+    }
+
+    return did_write;
 }
 
 #ifndef UNITTEST
