@@ -641,6 +641,9 @@ int min_terminal_write_to_shellf(int pty_fd, const char *format, ...) {
 int main(int argc, char **argv) {
     diagnostics_initialize();
 
+    const char *ttf_path = secure_getenv("MIN_TERMINAL_FONT");
+    if (ttf_path == NULL) { assert(false); }
+
     struct arguments args;
     arguments_parse(argc, argv, &args);
 
@@ -848,7 +851,7 @@ int main(int argc, char **argv) {
                           GL_TRUE);     // enabled
 
 
-    rendering_initialize(display, window, glx_context);
+    rendering_initialize(display, window, glx_context, ttf_path);
 
     union { int i; unsigned int ui; Window w; } dummy;
     XGetGeometry(display,

@@ -45,6 +45,10 @@
                 pylsp-mypy # type checking
               ]))
             ];
+
+            shellHook = ''
+                export MIN_TERMINAL_FONT=${pkgs.nerd-fonts.fira-code}//share/fonts/truetype/NerdFonts/FiraCode/FiraCodeNerdFontMono-Regular.ttf
+            '';
           };
         }
       );

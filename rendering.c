@@ -13,10 +13,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb_truetype.h>
 
-static const char *ttf_path =
-    "/nix/store/wmdjq77kb88av295fcx600ff13v2vh7k-home-manager-path"
-    "/share/fonts/truetype/NerdFonts/FiraCodeNerdFontMono-Regular.ttf";
-
 static hb_blob_t   *blob;
 static hb_face_t   *face;
 static hb_font_t   *font;
@@ -56,7 +52,11 @@ struct s_uniform_locations {
     GLint bg_color;
 } uniform_locations;
 
-void rendering_initialize(Display *display, int window, GLXContext context) {
+void rendering_initialize(Display *display,
+                          int window,
+                          GLXContext context,
+                          const char *ttf_path) {
+
     x_display = display;
     x_window = window;
     gl_context = context;

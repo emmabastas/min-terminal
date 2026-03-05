@@ -5,7 +5,10 @@
 
 #include "./termbuf.h"
 
-void rendering_initialize(Display *display, int window, GLXContext context);
+void rendering_initialize(Display *display,
+                          int window,
+                          GLXContext context,
+                          const char *ttf_path);
 void rendering_calculate_sizes(int screen_height,
                                int screen_width,
                                int char_height,
