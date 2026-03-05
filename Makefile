@@ -14,8 +14,10 @@ dist/glad/src/glx.c
 COMMON_FLAGS = -std=c99 -D _GNU_SOURCE -Wall -Wextra -Wpedantic -Werror \
 	-lc -lm -lharfbuzz -lX11 -lGLX -lGL \
 	-I dist/ -I dist/glad/include/
+# -fsanitize=address causes glXChooseFBConfig to return NULL for whatever reason..
 DEBUG_FLAGS = -g -Og -fsanitize=undefined
 PRODUCTION_FLAGS = -O3
+UNITTEST_FLAGS = -D UNITTEST -Wno-unused-variable -fsanitize=address
 
 .PHONY: all
 all: debug
@@ -65,13 +67,10 @@ build/unittest/%.o: %.c
 	mkdir -p ${dir $@}
 	gcc -D UNITTEST $(COMMON_FLAGS) $(DEBUG_FLAGS) -Wno-unused-variable -fsanitize=address  -c ./$< -o ./$@
 
+
 ########
 # MISC #
 ########
-
-.PHONY: esctest
-esctest:
-	./build/debug/min-terminal -e "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm --options allowC1Printable disableWideChars"
 
 .PHONY: clean
 clean:
