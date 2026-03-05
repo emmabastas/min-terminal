@@ -1,3 +1,7 @@
+> ⚠️ This repository is a mirror of https://sr.ht/~emmabastas/min-terminal/
+> If you want to open issues here on GitHub that's completely fine, but
+> if you want to make a fork it's best to use the SourceHut repository instead.
+
 # `min-terminal`
 
 This is `min-terminal`, a little side-project that I started to get more comfortable with `C`. In the future I hope to use this terminal as my daily driver (I currently use [`st`](https://st.suckless.org/)) and I intend for it to be usable by me with my workflow. This means that, from most perspectives, `min-terminal` is simultaneously over-engineered and severely lacking in features, but for me it's perfect :-))
