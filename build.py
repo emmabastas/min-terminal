@@ -95,7 +95,7 @@ def build():
 
 def unit_debug():
     run_shell(["make", "unittest"])
-    run_shell(memcheck_wrap(["./tests/unit-test"]))
+    run_shell(memcheck_wrap(["./build/unittest/unit-test"]))
 
 def unit_prod():
     raise Exception("TODO")

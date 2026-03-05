@@ -3,6 +3,7 @@
 #include "../ringbuf.h"
 #include "../termbuf.h"
 
+#ifdef UNITTEST
 int main(void) {
     CuTestStart();
 
@@ -21,3 +22,4 @@ int main(void) {
 
     return 0;
 }
+#endif
