@@ -767,7 +767,7 @@ void action_print(struct termbuf *tb, char ch) {
 // Notably it is not meant to handle ESC.
 // Also does not handle 32 space or 127 delete.
 void action_c0(struct termbuf *tb, char ch) {
-    assert(0 <= ch && ch <= 31 && ch != '\x1B');
+    assert(ch != '\x1B' && ch != 32 && ch != 127);
     switch (ch) {
     case '\0':  // NULL.
         assert(false);
@@ -856,6 +856,8 @@ void action_c0(struct termbuf *tb, char ch) {
     case 30:  // Record separator.
         assert(false);
     case 31:  // Unit separator.
+        assert(false);
+    case 72:  // Tab set
         assert(false);
     }
 }
@@ -1266,6 +1268,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             assert(false);
         }
 
+
         // Select refresh rate (DECSRFR)
         // https://vt100.net/docs/vt510-rm/DECSRFR.html
         if (ch == 't') {
@@ -1408,9 +1411,6 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // How to tell when to use this vs DECSLPP?
     if (ch == 't' && len >= 1 && len <= 3) {
         handle_xterm_winops(tb, p1, p2, p3, len);
-        return;
-    }
-
         return;
     }
 
@@ -2464,7 +2464,25 @@ table = [
   # Got a so called "Fp" escape sequence
   [ P_STATE_ESC, r(48, 63),  P_STATE_GROUND, action_fp                        ],
   # Got some follow-up byte we we're not expecting
-  [ P_STATE_ESC, r(64, 90),  P_STATE_GROUND, action_fail                      ],
+  [ P_STATE_ESC, r(64, 67),  P_STATE_GROUND, action_fail                      ],
+  # ESC D -- Index (IND)
+  [ P_STATE_ESC, [ 68 ],     P_STATE_GROUND, action_c0                        ],
+  # ESC E -- Next line (NEL)
+  [ P_STATE_ESC, [ 69 ],     P_STATE_GROUND, action_c0                        ],
+  # Got some follow-up byte we we're not expecting
+  [ P_STATE_ESC, [ 70, 71 ], P_STATE_GROUND, action_fail                      ],
+  # ESC H -- Tab set (HTS)
+  [ P_STATE_ESC, [ 72 ],     P_STATE_GROUND, action_c0                        ],
+  # Got some follow-up byte we we're not expecting
+  [ P_STATE_ESC, r(73, 76),  P_STATE_GROUND, action_fail                      ],
+  # ESC M -- Reverse index (RI)
+  [ P_STATE_ESC, [ 77 ],     P_STATE_GROUND, action_c0                        ],
+  # ESC N -- Single Shift Select of G2 Character Set (SS2)
+  [ P_STATE_ESC, [ 78 ],     P_STATE_GROUND, action_c0                        ],
+  # ESC O -- Single Shift Select of G3 Character Set (SS3)
+  [ P_STATE_ESC, [ 79 ],     P_STATE_GROUND, action_c0                        ],
+  # Got some follow-up byte we we're not expecting
+  [ P_STATE_ESC, r(80, 90),  P_STATE_GROUND, action_fail                      ],
   # Got '['. "ESC[" is a "control sequence introducer" (CSI). Basically we have
   # the start of an ANSI escape sequence now.
   [ P_STATE_ESC, [ 91 ],     P_STATE_CSI   , action_csi_chomp_start           ],
@@ -4779,7 +4797,15 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
+      .action = &action_c0, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_c0, },
+    { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_fail, },
+    { .new_state = P_STATE_GROUND,
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
@@ -4789,19 +4815,11 @@ struct parser_table_entry parser_table[256 * NSTATES] = {
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
-    { .new_state = P_STATE_GROUND,
-      .action = &action_fail, },
+      .action = &action_c0, },
     { .new_state = P_STATE_GROUND,
       .action = &action_fail, },
     { .new_state = P_STATE_GROUND,
