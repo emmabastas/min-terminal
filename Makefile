@@ -22,6 +22,7 @@ SOURCE_FILES = \
 min-terminal.c \
 ringbuf.c \
 termbuf.c \
+handlers.c \
 rendering.c \
 keymap.c \
 arguments.c \
@@ -94,5 +95,3 @@ build/unittest/%.o: %.c
 .PHONY: clean
 clean:
 > rm -rf ./build
-
-

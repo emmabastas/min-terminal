@@ -13,6 +13,7 @@
 #include "./CuTest.h"
 
 #include "./termbuf.h"
+#include "./handlers.h"
 
 
 
@@ -21,12 +22,6 @@
 // and      https://unix.stackexchange.com/questions/157878/non-printing-escape-sequence-when
 
 
-
-#define FAIL 1
-#define IGNORE 2
-static const bool ON_UNKNOWN_SEQUENCE = FAIL;
-
-void unknown_csi(struct termbuf *tb, char final_byte, char *file, int line);
 void csi_dec_mode_set(struct termbuf *tb, char final_byte);
 void csi_dec_private_mode_set(struct termbuf *tb, char final_byte);
 void csi_title_mode_set(struct termbuf *tb, char final_byte);
@@ -1409,47 +1404,13 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     if (ch == '~') { /* TODO */ assert(false); }
 
 
-    // Window manipulation (XTWINOPS)
-    // CSI Pm t
-    // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h4-Functions-using-CSI-_-ordered-by-the-final-character-lparen-s-rparen:CSI-Ps;Ps;Ps-t.1EB0
+    // CSI Ps t -- xterm Window Operations.
     // How to tell when to use this vs DECSLPP?
-    if (ch == 't') {
-        // CSI 1 ; Ps; Ps t
-        // Resize text area to given width and height.
-        // Parameter ommited => use current width / height.
-        // Parameter is 0 => use max width / height possible.
-        if (len >= 1 && p1 == 8) {
-            uint16_t nnrows = len < 2 ? tb->nrows : p2;
-            uint16_t nncols = len < 3 ? tb->ncols : p3;
+    if (ch == 't' && len >= 1 && len <= 3) {
+        handle_xterm_winops(tb, p1, p2, p3, len);
+        return;
+    }
 
-            termbuf_resize(tb, nnrows, nncols);
-
-            // TODO: Resize the actual window too.
-
-            return;
-        }
-
-        // Report the size of the text area in characters.
-        // Result is CSI  8 ;  height ;  width t
-        if (len == 1 && p1 == 18) {
-            min_terminal_write_to_shellf(tb->pty_fd, "\x1B[8;%d;%d", tb->nrows, tb->ncols);
-            return;
-        }
-
-        // CSI 23 ; Ps t
-        // These are all related to pushing and popping window titles and icons
-        // to /from on a stack. Since we're not interested in implementing this
-        // we just ignore.
-        if (len >= 1 && p1 == 23) {
-            assert(p2 <= 2);
-            return;
-        }
-
-        unknown_csi(tb, ch, __FILE__, __LINE__);
-
-        if (ON_UNKNOWN_SEQUENCE == FAIL) {
-            exit(-1);
-        }
         return;
     }
 

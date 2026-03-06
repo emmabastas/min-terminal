@@ -9,6 +9,10 @@
 
 #include "./CuTest.h"
 
+#define FAIL 1
+#define IGNORE 2
+static const bool ON_UNKNOWN_SEQUENCE = FAIL;
+
 extern const uint8_t four_bit_colors[16 * 3];
 extern const uint8_t eight_bit_colors[256 * 3];
 
@@ -126,8 +130,8 @@ union parser_data {
 struct termbuf {
     int nrows;
     int ncols;
-    int row;
-    int col;
+    int row; // 1-indexed.
+    int col; // 1-indexed.
     uint16_t flags;
     uint8_t fg_color_r;
     uint8_t fg_color_g;
@@ -166,6 +170,8 @@ void termbuf_free(struct termbuf *tb);
 // Parses bytes that we're sent by the shell, including things like C0, C1, and
 // Fe escape sequences, and does the appropriate thing.
 void termbuf_parse(struct termbuf *tb, uint8_t *data, size_t len);
+
+void unknown_csi(struct termbuf *tb, char final_byte, char *file, int line);
 
 // Insert a single utf8 encoded character with the styling (bold, italic,
 // foreground color, etc.) that the terminal currently has, and advance to
