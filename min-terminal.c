@@ -415,7 +415,9 @@ void handle_primary_pty_input() {
         }
 
         if (did_read == (size_t) -1) {  // Some other error.
-            assert(false);
+            const char *s = strerror(errno);
+            diagnostics_printf("Error reading from primary pty: %s\n", s);
+            exit(-1);
         }
 
         termbuf_parse(&tb, buf, did_read);
