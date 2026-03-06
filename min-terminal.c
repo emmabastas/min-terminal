@@ -124,12 +124,16 @@ static pid_t shell_pid;       // The PID of the shell process.
 // doc comment for rationale.
 static int event_loop_self_pipes[2];
 
+static int shell_terminated = false;
+
 #if _POSIX_C_SOURCE < 200112L
 #error "we don't have posix_openpt\n"
 #endif
 
 void handle_primary_pty_input();
+void handle_primary_pty_hup();
 void handle_x11_event();
+void handle_x11_event_hup();
 void render();
 void gl_debug_msg_callback(GLenum source,
                            GLenum type,
@@ -351,33 +355,16 @@ void event_loop() {
         }
     };
 
-    void (*handlers[N_EVENT_TYPES]) (void) = {
+    void (*handlers[N_EVENT_TYPES*2]) (void) = {
         handle_primary_pty_input,
+        handle_primary_pty_hup,
         handle_x11_event,
+        handle_x11_event_hup,
         handle_x11_event,
+        handle_x11_event_hup,
     };
 
     while(true) {
-        // BUG: This guard doesn't work since
-        // 69bbd0c151551b52c8884becd1654e4ccc5eda95
-        //
-        // I can make shell status a `poll` -able  file descriptor with
-        // `signalfd`. However, the `primary_pty_fd` will close before I get the
-        // update from the file descriptor.
-        int shell_status;
-        int ret = waitpid(shell_pid, &shell_status, WNOHANG);
-        if (ret == -1) {  // Some error occured.
-            assert(false);
-        }
-        if (ret != 0) {  // 0 indicates that the shell process hasn't changed
-                         // state, so ret != 0 means something happened
-            // TODO: do somethings here.
-            // There are macros to get information from `shell_status`, see
-            // `man 2 wait`
-            printf("Child process has terminated.\n");
-            while(true) { usleep(1000); }
-        }
-
         diagnostics_type(DIAGNOSTICS_EVENT_LOOP, __FILE__, __LINE__);
         diagnostics_printf("\x1B[31m>About to `poll`...\n");
 
@@ -389,13 +376,16 @@ void event_loop() {
         diagnostics_printf("<Done polling\n\x1B[m");
 
         for (int i = 0; i < N_EVENT_TYPES; i++) {
-            assert((pollfds[i].revents & POLLERR)  == 0);
-            assert((pollfds[i].revents & POLLHUP)  == 0);
             assert((pollfds[i].revents & POLLNVAL) == 0);
-            if ((pollfds[i].revents & POLLIN) == 0) {
-                continue;
+            assert((pollfds[i].revents & POLLERR)  == 0);
+
+            if (pollfds[i].revents & POLLIN) {
+                handlers[i*2]();
             }
-            handlers[i]();
+
+            if (pollfds[i].revents & POLLHUP) {
+                handlers[i*2 + 1]();
+            }
         }
     }
 }
@@ -440,6 +430,13 @@ void handle_primary_pty_input() {
         if (ret == -1) {
             assert(false);
         }
+    }
+}
+
+void handle_primary_pty_hup() {
+    if (!shell_terminated) {
+        printf("Child process has terminated. Press any key to exit\n");
+        shell_terminated = true;
     }
 }
 
@@ -488,6 +485,10 @@ void handle_x11_event() {
         }
 
         if (event.type == KeyPress) {
+            if(shell_terminated) {
+                exit(0);
+            }
+
             keymap_handle_x11_keypress(event.xkey);
             continue;
         }
@@ -598,6 +599,10 @@ void handle_x11_event() {
                util_xevent_to_string(event.type));
         assert(false);
     }
+}
+
+void handle_x11_event_hup() {
+    assert(false);
 }
 
 void min_terminal_scroll_forward() {
