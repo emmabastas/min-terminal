@@ -232,9 +232,9 @@ void render() {
     c.fg_color_r = 0;
     c.fg_color_g = 0;
     c.fg_color_b = 0;
-    c.bg_color_r = four_bit_colors[8 * 3];
-    c.bg_color_g = four_bit_colors[8 * 3 + 1];
-    c.bg_color_b = four_bit_colors[8 * 3 + 2];
+    c.bg_color_r = tb.palette[8 * 3];
+    c.bg_color_g = tb.palette[8 * 3 + 1];
+    c.bg_color_b = tb.palette[8 * 3 + 2];
 
     rendering_render_cell(0, 0, tb.row, tb.col, &c);
 
