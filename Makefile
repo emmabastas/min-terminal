@@ -21,6 +21,7 @@ endif
 SOURCE_FILES = \
 min-terminal.c \
 ringbuf.c \
+tabstops.c \
 termbuf.c \
 handlers.c \
 rendering.c \

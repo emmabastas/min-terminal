@@ -474,6 +474,7 @@ void termbuf_initialize(int nrows,
         assert(false);
     }
 
+    tabstops_initialize(&tb_ret->tabstops);
     ringbuf_initialize(RINGBUF_CAPACITY_1KiB, true, &tb_ret->scrollback);
 }
 
@@ -858,7 +859,7 @@ void action_c0(struct termbuf *tb, char ch) {
     case 31:  // Unit separator.
         assert(false);
     case 72:  // Tab set
-        assert(false);
+        tabstops_set(&tb->tabstops, tb->col);
     }
 }
 

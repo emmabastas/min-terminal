@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 
 #include "./ringbuf.h"
+#include "./tabstops.h"
 
 #include "./CuTest.h"
 
@@ -156,6 +157,8 @@ struct termbuf {
     struct termbuf_char *buf;
     // The scrollback buffer
     struct ringbuf scrollback;
+    // The tabstops bitset
+    struct tabstops tabstops;
     // The number of rows that the user has scrolled into the scrollback buffer.
     int scroll_position;
     size_t scroll_offset;

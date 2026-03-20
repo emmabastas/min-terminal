@@ -18,6 +18,12 @@ void handle_xterm_winops(struct termbuf *tb,
                          uint16_t p2,
                          uint16_t p3,
                          int len) {
+    // CSI 1 t -- De-iconify window
+    // CSI 2 t -- Iconify window
+    if ((p1 == 1 || p1 == 2) && len == 1) {
+        return; // We don't do icons.
+    }
+
     // CSI 8 Ph Pw t -- Resize window.
     // Resize text area to given width and height.
     // Parameter ommited => use current width / height.
@@ -35,7 +41,6 @@ void handle_xterm_winops(struct termbuf *tb,
 
     // CSI 18 t -- Report SIZE in characters.
     if (p1 == 18 && len == 1) {
-        printf("REPORT\n");
         xterm_winops_report(tb, 8, tb->nrows, tb->ncols);
         return;
     }
