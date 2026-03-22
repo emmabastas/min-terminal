@@ -2234,7 +2234,9 @@ void action_osc_chomp(struct termbuf *tb, char ch) {
 }
 
 void action_osc_chomp_end(struct termbuf *tb, char ch) {
-    assert(ch == 7);
+    // both '\a' (BELL) and ESC followed by '\' can be usd to terminate
+    // and OSC sequeunce
+    assert(ch == 7 || ch == 92);
 
     // See
     // - https://www.xfree86.org/current/ctlseqs.html
