@@ -159,12 +159,12 @@ struct termbuf {
     struct ringbuf scrollback;
     // The tabstops bitset
     struct tabstops tabstops;
-    // Current color paltte
-    // And array of 255 * 3 uint8_t's corresponding to 255 rgb colors.
-    uint8_t *palette;
     // The number of rows that the user has scrolled into the scrollback buffer.
     int scroll_position;
     size_t scroll_offset;
+    // Current color paltte
+    // A buffer of 256 * 3 uint8_t's corresponding to 255 rgb colors.
+    uint8_t *palette;
 };
 
 void termbuf_initialize(int nrows,

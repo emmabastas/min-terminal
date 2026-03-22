@@ -39,7 +39,7 @@ void csi_title_mode_set(struct termbuf *tb, char final_byte);
 //
 // https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
 // https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
-uint8_t default_palette[256 * 3] = {
+const uint8_t default_palette[256 * 3] = {
     //                 FG/BG Name.
     0  , 0  , 0  ,  // 30/40 Black.
     153, 0  , 0  ,  // 31/41 Red.
@@ -459,16 +459,18 @@ void termbuf_initialize(int nrows,
     tabstops_initialize(&tb_ret->tabstops);
     ringbuf_initialize(RINGBUF_CAPACITY_1KiB, true, &tb_ret->scrollback);
 
-    // The default palette ends up being shared by all termbufs.
-    // Right now we only ever have one termbuf per program so this is ok (though
-    // ugly).
-    // TODO: Fix?
-    tb_ret->palette = default_palette;
+    tb_ret->palette = malloc(256 * 3);
+    if (tb_ret->palette == NULL) {
+        assert(false);
+    }
+    memcpy(tb_ret->palette, default_palette, 256 * 3);
+
 }
 
 void termbuf_free(struct termbuf *tb) {
     free(tb->buf);
     ringbuf_free(&tb->scrollback);
+    free(tb->palette);
 }
 
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
@@ -2313,6 +2315,22 @@ void action_osc_chomp_end(struct termbuf *tb, char ch) {
         // There's nothing we have to do here, maybe we'd want to use this info
         // for something at some point in the future?
         return;
+    }
+
+    // OSC 104; ST -- Reset color palette
+    // ghosty.org/docs/vt/osc/104
+    if(data->len >= 4
+       && data->data[0] == '1'
+       && data->data[1] == '0'
+       && data->data[2] == '4'
+       && data->data[3] == ';'
+       ) {
+        // Reset ENTIRE Palette
+        if (data->len == 4) {
+            memcpy(tb->palette, default_palette, 256 * 3);
+            return;
+        }
+        assert(false);
     }
 
     if (data->len == 1024) {
