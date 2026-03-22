@@ -111,8 +111,10 @@ def get_esctest():
               cwd="./tests/esctest2/")
 
 def run_esctest():
-    run_shell(["./min-terminal", "-e",
-               "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm --options allowC1Printable disableWideChars"])
+    path = "./build/debug/min-terminal" if mode == "debug" else "./build/debug/min-terminal"
+
+    run_shell([path, "-e",
+               "./tests/esctest2/esctest/esctest.py --max-vt-level=1 --expected-terminal=xterm --stop-on-failure --options allowC1Printable disableWideChars"])
 
 def memcheck_wrap(args):
     if memcheck:
