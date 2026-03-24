@@ -14,6 +14,7 @@
 
 #include "./termbuf.h"
 #include "./handlers.h"
+#include "./rendering.h"
 
 
 
@@ -438,12 +439,18 @@ void termbuf_initialize(int nrows,
     tb_ret->row = 1;
     tb_ret->col = 1;
     tb_ret->flags = FLAG_LENGTH_0 | FLAG_DECKPAM;
-    tb_ret->fg.r = 255;
-    tb_ret->fg.g = 255;
-    tb_ret->fg.b = 255;
-    tb_ret->bg.r = 10;
-    tb_ret->bg.g = 10;
-    tb_ret->bg.b = 10;
+    tb_ret->fg.r = default_palette[7 * 3];
+    tb_ret->fg.g = default_palette[7 * 3 + 1];
+    tb_ret->fg.b = default_palette[7 * 3 + 2];
+    tb_ret->bg.r = default_palette[0];
+    tb_ret->bg.g = default_palette[1];
+    tb_ret->bg.b = default_palette[2];
+    tb_ret->default_fg.r = tb_ret->fg.r;
+    tb_ret->default_fg.g = tb_ret->fg.g;
+    tb_ret->default_fg.b = tb_ret->fg.b;
+    tb_ret->default_bg.r = tb_ret->bg.r;
+    tb_ret->default_bg.g = tb_ret->bg.g;
+    tb_ret->default_bg.b = tb_ret->bg.b;
     tb_ret->saved_row = -1;
     tb_ret->saved_col = -1;
 
@@ -2247,6 +2254,17 @@ void action_osc_chomp_end(struct termbuf *tb, char ch) {
 
     struct ansi_osc_chomping *data = &tb->p_data.ansi_osc_chomping;
 
+    unsigned int n;
+    int bytes_consumed;
+    int count = sscanf((char *) data->data, "%u;%n", &n, &bytes_consumed);
+
+    if (count != 1) {
+        assert(false);
+    }
+
+    uint8_t *text = data->data + bytes_consumed;
+    int textlen = data->len - bytes_consumed;
+
     // ESC]0;<string>ST Set the title and icon nae of the terminal window.
     if(data->len >= 2 && data->data[0] == '0' && data->data[1] == ';') {
         // TODO: Should we handle?
@@ -2298,6 +2316,47 @@ void action_osc_chomp_end(struct termbuf *tb, char ch) {
        && data->data[2] == ';') {
         // There's nothing we have to do here, maybe we'd want to use this info
         // for something at some point in the future?
+        return;
+    }
+
+    if (n == 10 || n == 11) {
+        int r, g, b;
+
+        if (textlen == 4) {
+            char rc, gc, bc;
+            int count = sscanf((char *) text, "#%c%c%c", &rc, &gc, &bc);
+            assert(count == 3);
+            text[2] = '0';
+            text[3] = gc;
+            text[4] = '0';
+            text[5] = bc;
+            text[6] = '0';
+            textlen = 7;
+        }
+
+        unsigned int n;
+        if (textlen == 7) {
+            int count = sscanf((char *) text, "#%x", &n);
+            assert(count == 1);
+        } else {
+            assert(false);
+        }
+
+        b = n & 15;               // 0b000000000000000011111111
+        g = (n & 65280) >> 8;     // 0b000000001111111100000000
+        r = (n & 16711680) >> 16; // 0b111111110000000000000000
+
+        if (n == 10) {
+            tb->default_fg.r = r;
+            tb->default_fg.g = g;
+            tb->default_fg.b = b;
+        } else {
+            tb->default_bg.r = r;
+            tb->default_bg.g = g;
+            tb->default_bg.b = b;
+        }
+
+        rendering_render_rect(1, 1, tb->nrows, tb->ncols, tb->buf, tb->nrows);
         return;
     }
 

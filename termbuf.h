@@ -22,11 +22,9 @@ extern const uint8_t eight_bit_colors[256 * 3];
 //    apperance.
 // 2) The terminal itself (termbuf) uses these flags to represent part of it's
 //    state.
-// The terminal cells only use the first 8-bits (i.e. the flags up to and
-// including `FLAG_STRIKEOUT` and hence a uint8_t is enough. The terminal state
-// uses all flags except for the first FLAG_LENGT_n flags and so in theory it
-// need no more than an uint8_t as well, but right now we have reserved an
-// uint16_t for it.
+// The terminal cells only use the first 10-bits, so flags up to and including
+// FLAG_DEFAULT_BG. The termbuf uses all but the FLAG_LENGTH_* flags, so the
+// the first 3-bits are unused there.
 #define FLAG_LENGTH_0 0                // 0b0000000000000000
 #define FLAG_LENGTH_1 1                // 0b0000000000000001
 #define FLAG_LENGTH_2 2                // 0b0000000000000010
@@ -38,25 +36,35 @@ extern const uint8_t eight_bit_colors[256 * 3];
 #define FLAG_ITALIC    32              // 0b0000000000100000
 #define FLAG_UNDERLINE 64              // 0b0000000001000000
 #define FLAG_STRIKEOUT 128             // 0b0000000010000000
-// These are only used by the `struct termbuf`
-#define FLAG_BRACKETED_PASTE_MODE 256  // 0b0000000100000000
+// FLAG_DEFAULT_* signifies that the "default" fg / bg is to be used.
+// Related to:
+// - OSC 104; ST
+// - OSC 10; ST
+// - OSC 11; ST
+// I.e. commands to change default colors.
+#define FLAG_DEFAULT_FG 256            // 0b0000000100000000
+#define FLAG_DEFAULT_BG 512            // 0b0000001000000000
+/////////////////////////////////////////////////
+// These are only used by the `struct termbuf` //
+/////////////////////////////////////////////////
+#define FLAG_BRACKETED_PASTE_MODE 1024 // 0b0000010000000000
 // Hide/show the cursor.
 // https://vt100.net/docs/vt510-rm/DECTCEM.html
-#define FLAG_DECTCEM 512               // 0b0000001000000000
+#define FLAG_DECTCEM 2048              // 0b0000100000000000
 // This flag determines wheter or not text should wrap to the next line if there
 // is no space on the current line.
 // see: https://vt100.net/docs/vt510-rm/DECAWM.html
-#define FLAG_DECAWM   1024             // 0b0000010000000000
+#define FLAG_DECAWM   4096             // 0b0001000000000000
 // When this flag is set new screen output has the foreground and background
 // colors swapped. Set and unset with ESC[7m resp. ESC[27m.
-#define FLAG_INVERT_COLORS   2048      // 0b0000100000000000
+#define FLAG_INVERT_COLORS   8192      // 0b0010000000000000
 // DECCKM and DECKPAM influence how the terminal communicates which
 // cursor/keypad are pressed to the terminal. See ./keymap.c for how these flags
 // comme into play.
 // See: https://vt100.net/docs/vt510-rm/DECCKM.html
 // See: https://vt100.net/docs/vt510-rm/DECKPAM.html
-#define FLAG_DECCKM  4096             // 0b0001000000000000
-#define FLAG_DECKPAM 8192             // 0b0010000000000000
+#define FLAG_DECCKM  16384             // 0b0100000000000000
+#define FLAG_DECKPAM 32768             // 0b1000000000000000
 
 struct color {
     uint8_t r;
@@ -68,7 +76,7 @@ struct color {
 // color, if it's bold, italic, etc.
 struct termbuf_char {
     uint8_t utf8_char[4];
-    uint8_t flags;
+    uint16_t flags;
     struct color fg;
     struct color bg;
 };
@@ -138,6 +146,8 @@ struct termbuf {
     uint16_t flags;
     struct color fg;
     struct color bg;
+    struct color default_fg;
+    struct color default_bg;
     // There are two so called "Fe" escape sequences that instructs the terminal
     // to save resp. restore the cursor position, so we save this here.
     // TODO: We should also save things like "shift state" and "formatting

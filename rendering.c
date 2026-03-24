@@ -8,6 +8,7 @@
 #include <glad/gl.h>
 #include <glad/glx.h>
 
+#include "./rendering.h"
 #include "./termbuf.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -240,6 +241,17 @@ void rendering_calculate_sizes(int screen_height,
 
     printf("fs %f\n", font_scale);
     printf("descent %d\n", descent);
+}
+
+void rendering_render_rect(int srow, int scol, int nrows, int ncols,
+                           struct termbuf_char *c, int stride) {
+    for (int i = 0; i < nrows; i++) {
+        for (int j = 0; j < ncols; j++) {
+            rendering_render_cell(0, 0, srow + i, scol + j, c);
+            c ++;
+        }
+        c += stride - ncols;
+    }
 }
 
 void rendering_render_cell(int xoffset, int yoffset, int row, int col,

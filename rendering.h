@@ -1,7 +1,8 @@
-#ifndef INCLUDED_FONT_H
-#define INCLUDED_FONT_H
+#ifndef INCLUDED_RENDERING_H
+#define INCLUDED_RENDERING_H
 
 #include <harfbuzz/hb.h>
+#include <glad/glx.h>
 
 #include "./termbuf.h"
 
@@ -16,5 +17,8 @@ void rendering_calculate_sizes(int screen_height,
                                int *ncols_ret);
 void rendering_render_cell(int xoffset, int yoffset, int row, int col,
                            struct termbuf_char *c);
+void rendering_render_rect(int srow, int scol, int nrows, int ncols,
+                           struct termbuf_char *c, int stride);
 
-#endif /* INCLUDED_FONT_H */
+
+#endif /* INCLUDED_RENDERING_H */
