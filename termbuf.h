@@ -58,17 +58,19 @@ extern const uint8_t eight_bit_colors[256 * 3];
 #define FLAG_DECCKM  4096             // 0b0001000000000000
 #define FLAG_DECKPAM 8192             // 0b0010000000000000
 
+struct color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
+
 // Represents a single unicode codepoint along with styling information such as
 // color, if it's bold, italic, etc.
 struct termbuf_char {
     uint8_t utf8_char[4];
     uint8_t flags;
-    uint8_t fg_color_r;
-    uint8_t fg_color_g;
-    uint8_t fg_color_b;
-    uint8_t bg_color_r;
-    uint8_t bg_color_g;
-    uint8_t bg_color_b;
+    struct color fg;
+    struct color bg;
 };
 
 enum parser_state {
@@ -134,12 +136,8 @@ struct termbuf {
     int row; // 1-indexed.
     int col; // 1-indexed.
     uint16_t flags;
-    uint8_t fg_color_r;
-    uint8_t fg_color_g;
-    uint8_t fg_color_b;
-    uint8_t bg_color_r;
-    uint8_t bg_color_g;
-    uint8_t bg_color_b;
+    struct color fg;
+    struct color bg;
     // There are two so called "Fe" escape sequences that instructs the terminal
     // to save resp. restore the cursor position, so we save this here.
     // TODO: We should also save things like "shift state" and "formatting

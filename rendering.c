@@ -341,13 +341,13 @@ void rendering_render_cell(int xoffset, int yoffset, int row, int col,
     glUniform1i(uniform_locations.bitmap_yoffset, bitmap_yoffset);
     glUniform1i(uniform_locations.descent, descent * font_scale);
     glUniform3f(uniform_locations.fg_color,
-                c->fg_color_r / 255.f,
-                c->fg_color_g / 255.f,
-                c->fg_color_b / 255.f);
+                c->fg.r / 255.f,
+                c->fg.g / 255.f,
+                c->fg.b / 255.f);
     glUniform3f(uniform_locations.bg_color,
-                c->bg_color_r / 255.f,
-                c->bg_color_g / 255.f,
-                c->bg_color_b / 255.f);
+                c->bg.r / 255.f,
+                c->bg.g / 255.f,
+                c->bg.b / 255.f);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }

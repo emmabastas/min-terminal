@@ -370,7 +370,7 @@ void termbuf_memzero(struct termbuf *tb,
             //     (struct termbuf_char) {
             //     .flags = FLAG_LENGTH_1,
             //     .utf8_char = { ' ', 0, 0, 0 },
-            //     .bg_color_r = 255,
+            //     .bg.r = 255,
             // };
 
             tb->buf[(row - 1) * tb->ncols + col - 1].flags = FLAG_LENGTH_0;
@@ -438,12 +438,12 @@ void termbuf_initialize(int nrows,
     tb_ret->row = 1;
     tb_ret->col = 1;
     tb_ret->flags = FLAG_LENGTH_0 | FLAG_DECKPAM;
-    tb_ret->fg_color_r = 255;
-    tb_ret->fg_color_g = 255;
-    tb_ret->fg_color_b = 255;
-    tb_ret->bg_color_r = 10;
-    tb_ret->bg_color_g = 10;
-    tb_ret->bg_color_b = 10;
+    tb_ret->fg.r = 255;
+    tb_ret->fg.g = 255;
+    tb_ret->fg.b = 255;
+    tb_ret->bg.r = 10;
+    tb_ret->bg.g = 10;
+    tb_ret->bg.b = 10;
     tb_ret->saved_row = -1;
     tb_ret->saved_col = -1;
 
@@ -500,21 +500,21 @@ void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
 
     if ((tb->flags & FLAG_INVERT_COLORS) == 0) {
         tb->buf[index].flags = tb->flags;
-        tb->buf[index].fg_color_r = tb->fg_color_r;
-        tb->buf[index].fg_color_g = tb->fg_color_g;
-        tb->buf[index].fg_color_b = tb->fg_color_b;
-        tb->buf[index].bg_color_r = tb->bg_color_r;
-        tb->buf[index].bg_color_g = tb->bg_color_g;
-        tb->buf[index].bg_color_b = tb->bg_color_b;
+        tb->buf[index].fg.r = tb->fg.r;
+        tb->buf[index].fg.g = tb->fg.g;
+        tb->buf[index].fg.b = tb->fg.b;
+        tb->buf[index].bg.r = tb->bg.r;
+        tb->buf[index].bg.g = tb->bg.g;
+        tb->buf[index].bg.b = tb->bg.b;
     } else { // When the FLAG_INVERT_COLORS is set we set the fg to the bg and
              // vice-versa.
         tb->buf[index].flags = tb->flags;
-        tb->buf[index].fg_color_r = tb->bg_color_r;
-        tb->buf[index].fg_color_g = tb->bg_color_g;
-        tb->buf[index].fg_color_b = tb->bg_color_b;
-        tb->buf[index].bg_color_r = tb->fg_color_r;
-        tb->buf[index].bg_color_g = tb->fg_color_g;
-        tb->buf[index].bg_color_b = tb->fg_color_b;
+        tb->buf[index].fg.r = tb->bg.r;
+        tb->buf[index].fg.g = tb->bg.g;
+        tb->buf[index].fg.b = tb->bg.b;
+        tb->buf[index].bg.r = tb->fg.r;
+        tb->buf[index].bg.g = tb->fg.g;
+        tb->buf[index].bg.b = tb->fg.b;
     }
 
     // NB. Here we might end up setting the cursor just outside of the view,
@@ -1143,12 +1143,12 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
             tb->flags &= ~ (FLAG_BOLD | FLAG_FAINT | FLAG_ITALIC
                             | FLAG_UNDERLINE | FLAG_STRIKEOUT
                             | FLAG_INVERT_COLORS);
-            tb->fg_color_r = tb->palette[15 * 3];
-            tb->fg_color_g = tb->palette[15 * 3 + 1];
-            tb->fg_color_b = tb->palette[15 * 3 + 2];
-            tb->bg_color_r = tb->palette[0];
-            tb->bg_color_g = tb->palette[1];
-            tb->bg_color_b = tb->palette[2];
+            tb->fg.r = tb->palette[15 * 3];
+            tb->fg.g = tb->palette[15 * 3 + 1];
+            tb->fg.b = tb->palette[15 * 3 + 2];
+            tb->bg.r = tb->palette[0];
+            tb->bg.g = tb->palette[1];
+            tb->bg.b = tb->palette[2];
             // TODO: DECSCA
             // TODO: DECSC
             // TODO: DECAUPSS
@@ -1565,14 +1565,14 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                            | FLAG_INVERT_COLORS);
 
             // Set foreground to "Bright white".
-            tb->fg_color_r = tb->palette[15 * 3];
-            tb->fg_color_g = tb->palette[15 * 3 + 1];
-            tb->fg_color_b = tb->palette[15 * 3 + 2];
+            tb->fg.r = tb->palette[15 * 3];
+            tb->fg.g = tb->palette[15 * 3 + 1];
+            tb->fg.b = tb->palette[15 * 3 + 2];
 
             // Set background color to "Black".
-            tb->bg_color_r = tb->palette[0];
-            tb->bg_color_g = tb->palette[1];
-            tb->bg_color_b = tb->palette[2];
+            tb->bg.r = tb->palette[0];
+            tb->bg.g = tb->palette[1];
+            tb->bg.b = tb->palette[2];
             return;
         }
 
@@ -1661,9 +1661,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 30;
                     assert(0 <= i && i <= 8);
-                    tb->fg_color_r = tb->palette[i * 3];
-                    tb->fg_color_g = tb->palette[i * 3 + 1];
-                    tb->fg_color_b = tb->palette[i * 3 + 2];
+                    tb->fg.r = tb->palette[i * 3];
+                    tb->fg.g = tb->palette[i * 3 + 1];
+                    tb->fg.b = tb->palette[i * 3 + 2];
                     continue;
                 }
             case 38:  // Set 8-bit foreground color or rgb color.
@@ -1696,9 +1696,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     uint16_t q2 = data->params[i + 2];
                     q2 = q2 == (uint16_t) -1 ? 0 : q2;
                     assert(q2 <= 255);
-                    tb->fg_color_r = tb->palette[q2 * 3];
-                    tb->fg_color_g = tb->palette[q2 * 3 + 1];
-                    tb->fg_color_b = tb->palette[q2 * 3 + 2];
+                    tb->fg.r = tb->palette[q2 * 3];
+                    tb->fg.g = tb->palette[q2 * 3 + 1];
+                    tb->fg.b = tb->palette[q2 * 3 + 2];
 
                     // Continue parsing any potential remaining graphics
                     // parameters.
@@ -1717,9 +1717,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     assert(q2 <= 255);
                     assert(q3 <= 255);
                     assert(q4 <= 255);
-                    tb->fg_color_r = q2;
-                    tb->fg_color_g = q3;
-                    tb->fg_color_b = q4;
+                    tb->fg.r = q2;
+                    tb->fg.g = q3;
+                    tb->fg.b = q4;
 
                     // Continue parsing any potential remaining graphics
                     // parameters.
@@ -1735,9 +1735,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 // white" to be our default.
                 {
                     int i = 15;
-                    tb->fg_color_r = tb->palette[i * 3];
-                    tb->fg_color_g = tb->palette[i * 3 + 1];
-                    tb->fg_color_b = tb->palette[i * 3 + 2];
+                    tb->fg.r = tb->palette[i * 3];
+                    tb->fg.g = tb->palette[i * 3 + 1];
+                    tb->fg.b = tb->palette[i * 3 + 2];
                     continue;
                 }
             case 40:  // Background color 1.
@@ -1751,9 +1751,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 40;
                     assert(0 <= i && i <= 8);
-                    tb->bg_color_r = tb->palette[i * 3];
-                    tb->bg_color_g = tb->palette[i * 3 + 1];
-                    tb->bg_color_b = tb->palette[i * 3 + 2];
+                    tb->bg.r = tb->palette[i * 3];
+                    tb->bg.g = tb->palette[i * 3 + 1];
+                    tb->bg.b = tb->palette[i * 3 + 2];
                     continue;
                 }
             case 48:  // Set 8-bit foreground color or rgb color.
@@ -1773,9 +1773,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     uint16_t q2 = data->params[i + 2];
                     q2 = q2 == (uint16_t) -1 ? 0 : q2;
                     assert(q2 <= 255);
-                    tb->bg_color_r = tb->palette[q2 * 3];
-                    tb->bg_color_g = tb->palette[q2 * 3 + 1];
-                    tb->bg_color_b = tb->palette[q2 * 3 + 2];
+                    tb->bg.r = tb->palette[q2 * 3];
+                    tb->bg.g = tb->palette[q2 * 3 + 1];
+                    tb->bg.b = tb->palette[q2 * 3 + 2];
 
                     // Continue parsing any potential remaining graphics
                     // parameters.
@@ -1794,9 +1794,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                     assert(q2 <= 255);
                     assert(q3 <= 255);
                     assert(q4 <= 255);
-                    tb->bg_color_r = q2;
-                    tb->bg_color_g = q3;
-                    tb->bg_color_b = q4;
+                    tb->bg.r = q2;
+                    tb->bg.g = q3;
+                    tb->bg.b = q4;
 
                     // Continue parsing any potential remaining graphics
                     // parameters.
@@ -1810,9 +1810,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 // See: case 39
 
                 // Set background color to black.
-                tb->bg_color_r = tb->palette[0];
-                tb->bg_color_g = tb->palette[1];
-                tb->bg_color_b = tb->palette[2];
+                tb->bg.r = tb->palette[0];
+                tb->bg.g = tb->palette[1];
+                tb->bg.b = tb->palette[2];
                 continue;
             case 50:
                 assert(false);
@@ -1905,9 +1905,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 90;
                     assert(0 <= i && i <= 8);
-                    tb->fg_color_r = tb->palette[(i + 8) * 3];
-                    tb->fg_color_g = tb->palette[(i + 8) * 3 + 1];
-                    tb->fg_color_b = tb->palette[(i + 8) * 3 + 2];
+                    tb->fg.r = tb->palette[(i + 8) * 3];
+                    tb->fg.g = tb->palette[(i + 8) * 3 + 1];
+                    tb->fg.b = tb->palette[(i + 8) * 3 + 2];
                     continue;
                 }
             case 98:
@@ -1925,9 +1925,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
                 {
                     int i = param - 100;
                     assert(0 <= i && i <= 8);
-                    tb->bg_color_r = tb->palette[(i + 8) * 3];
-                    tb->bg_color_g = tb->palette[(i + 8) * 3 + 1];
-                    tb->bg_color_b = tb->palette[(i + 8) * 3 + 2];
+                    tb->bg.r = tb->palette[(i + 8) * 3];
+                    tb->bg.g = tb->palette[(i + 8) * 3 + 1];
+                    tb->bg.b = tb->palette[(i + 8) * 3 + 2];
                     continue;
                 }
             }
