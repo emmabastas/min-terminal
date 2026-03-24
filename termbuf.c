@@ -1344,13 +1344,15 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         assert(len <= 1);
         uint16_t p = len == 0 ? 0 : p1;
 
-        // Clear current line.
+        // Clear current column.
         if (p == 0) {
+            tabstops_clear(&tb->tabstops, tb->col);
             return;
         }
 
         // Clear all tabulation stops
         if (p == 3) {
+            tabstops_clear_all(&tb->tabstops);
             return;
         }
 

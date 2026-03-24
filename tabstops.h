@@ -9,6 +9,8 @@ struct __attribute__((packed)) tabstops {
 };
 
 void tabstops_initialize(struct tabstops *ts_ret);
-void tabstops_set(struct tabstops *ts_ret, int position);
+void tabstops_set(struct tabstops *ts, int position);
+void tabstops_clear(struct tabstops *ts, int position);
+void tabstops_clear_all(struct tabstops *ts);
 
 #endif /* INCLUDED_TABSTOPS_H */

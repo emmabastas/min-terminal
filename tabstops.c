@@ -19,3 +19,21 @@ void tabstops_set(struct tabstops *ts, int position) {
 
     *((uint64_t *) ts + offset) |= ((uint64_t) 1 << position);
 }
+
+void tabstops_clear(struct tabstops *ts, int position) {
+    assert(0 < position && position < 128);
+
+    // TODO make brancheless?
+    int offset = 0;
+    if (position > 64) {
+        offset = 1;
+        position -= 64;
+    }
+
+    *((uint64_t *) ts + offset) &= ~((uint64_t) 1 << position);
+}
+
+void tabstops_clear_all(struct tabstops *ts) {
+    ts->bs1 = 0;
+    ts->bs2 = 0;
+}
