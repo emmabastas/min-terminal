@@ -451,8 +451,8 @@ void termbuf_initialize(int nrows,
     tb_ret->default_bg.r = tb_ret->bg.r;
     tb_ret->default_bg.g = tb_ret->bg.g;
     tb_ret->default_bg.b = tb_ret->bg.b;
-    tb_ret->saved_row = -1;
-    tb_ret->saved_col = -1;
+    tb_ret->saved_row = 1;
+    tb_ret->saved_col = 1;
 
     tb_ret->pty_fd = pty_fd;
 
@@ -472,12 +472,47 @@ void termbuf_initialize(int nrows,
     }
     memcpy(tb_ret->palette, default_palette, 256 * 3);
 
+    tb_ret->mainbuf = NULL;
 }
 
 void termbuf_free(struct termbuf *tb) {
     free(tb->buf);
     ringbuf_free(&tb->scrollback);
     free(tb->palette);
+    if (tb->mainbuf != NULL) {
+        free(tb->mainbuf);
+    }
+}
+
+void swap_saved_cursors(struct termbuf *tb) {
+    int tmp;
+    tmp = tb->saved_row;
+    tb->saved_row = tb->alt_saved_row;
+    tb->alt_saved_row = tmp;
+
+    tmp = tb->saved_col;
+    tb->saved_col = tb->alt_saved_col;
+    tb->alt_saved_col = tmp;
+}
+
+void termbuf_use_alternate_buffer(struct termbuf *tb) {
+    assert(tb->mainbuf == NULL);
+
+    tb->mainbuf = tb->buf;
+    tb->buf = calloc(tb->nrows * tb->ncols, sizeof(struct termbuf_char));
+    assert(tb->buf != NULL);
+
+    swap_saved_cursors(tb);
+}
+
+void termbuf_use_main_buffer(struct termbuf *tb) {
+    assert(tb->mainbuf != NULL);
+
+    free(tb->buf);
+    tb->buf = tb->mainbuf;
+    tb->mainbuf = NULL;
+
+    swap_saved_cursors(tb);
 }
 
 void termbuf_insert(struct termbuf *tb, const uint8_t *utf8_char, int len) {
@@ -857,6 +892,22 @@ void action_c0(struct termbuf *tb, char ch) {
         assert(false);
     case 72:  // Tab set
         tabstops_set(&tb->tabstops, tb->col);
+        return;
+    }
+
+    diagnostics_type(DIAGNOSTICS_TERM_CODE_ERROR, __FILE__, __LINE__);
+    char buf[1024];
+    int written = snprintf(buf,
+             1024,
+             "\n"
+             "Got an unknown c0 escape sequence with value:\n"
+             "    '%c' (decimal %d).\n",
+             (ch == '\0' ? '0' : ch), ch);
+    assert(written < 1024);
+    diagnostics_printf(buf, written);
+
+    if (ON_UNKNOWN_SEQUENCE == FAIL) {
+        exit(-1);
     }
 }
 
@@ -869,16 +920,13 @@ void action_fp(struct termbuf *tb, char ch) {
 
     // Save cursor
     if (ch == '7') {
-        tb->saved_row = tb->row;
-        tb->saved_col = tb->col;
+        handle_save_cursor(tb);
         return;
     }
 
     // Restore cursor
     if (ch == '8') {
-        assert(tb->saved_row != -1 && tb->saved_row != -1);
-        tb->row = tb->saved_row;
-        tb->col = tb->saved_col;
+        handle_restore_cursor(tb);
         return;
     }
 
@@ -1334,6 +1382,16 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
+    // No more intermediates or initial characters past this point
+    if (ic != '\0' || intermediate != 255) {
+        unknown_csi(tb, ch, __FILE__, __LINE__);
+
+        if (ON_UNKNOWN_SEQUENCE == FAIL) {
+            exit(-1);
+        }
+        return;
+    }
+
     // Tab Clear (TBC)
     // CSI Ps g
     // https://terminalguide.namepad.de/seq/csi_sg/
@@ -1373,12 +1431,18 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
     // Set Top and Bottom Margins (DECSTBM)
     // https://vt100.net/docs/vt510-rm/DECSTBM.html
     if (ch == 'r') { /* TODO */ assert(false); }
-    // Set Left and Right Margins (DECSLRM)
+    // Same as DECSC (ESC 7)
     // https://vt100.net/docs/vt510-rm/DECSLRM.html
-    if (ch == 's') { /* TODO */ assert(false); }
-    // Set Horizontal Tabulation Stops (DECSHTS)
-    // https://vt100.net/docs/vt510-rm/DECSHTS.html
-    if (ch == 'u') { /* TODO */ assert(false); }
+    if (ch == 's') {
+        handle_save_cursor(tb);
+        return;
+    }
+    // Same as DECRC (ESC 8)
+    // https://vt100.net/docs/vt510-rm/DECRC.html
+    if (ch == 'u') {
+        handle_restore_cursor(tb);
+        return;
+    }
     // Set Vertical Tabulation Stops (DECSVTS)
     // https://vt100.net/docs/vt510-rm/DECSVTS.html
     if (ch == 'v') { /* TODO */ assert(false); }
@@ -1414,35 +1478,35 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC n A, CUU, move cursor up
+    // CSI Ps A, CUU, move cursor up
     if (ch == 'A' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
         tb->row = tb->row - n < 1 ? 1 : tb->row - n;
         return;
     }
 
-    // ESC n B, CUD, move cursor down
+    // CSI Ps B, CUD, move cursor down
     if (ch == 'B' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
         tb->row = tb->row + n > tb->nrows ? tb->nrows : tb->row + n;
         return;
     }
 
-    // ESC n C, CUF, move cursor forward
+    // CSI Ps C, CUF, move cursor forward
     if (ch == 'C' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
         tb->col = tb->col + n > tb->ncols ? tb->ncols : tb->col + n;
         return;
     }
 
-    // ESC n D, CUB, move cursor backwards
+    // CSI Ps D, CUB, move cursor backwards
     if (ch == 'D' && (len == 0 || len == 1)) {
         int n = len == 0 ? 1 : p1;
         tb->col = tb->col - n < 1 ? 1 : tb->col - n;
         return;
     }
 
-    // ESC[<n>G Cursor Character Absolute (CHA)
+    // CSO ps G Cursor Character Absolute (CHA)
     // See: https://vt100.net/docs/vt510-rm/CHA.html
     if (ch == 'G') {
         assert(len <= 1);
@@ -1451,7 +1515,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC n ; m H, CUP, set cursor position
+    // CSP Pn ; Pm H, CUP, set cursor position
     if (ch == 'H' && len <= 2) {
         p1 = p1 == (uint16_t) -1 ? 1 : p1;
         p2 = p2 == (uint16_t) -1 ? 1 : p2;
@@ -1460,7 +1524,7 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC 0 J, ED, erase display from cursor to end of scree.
+    // CSI 0 J, ED, erase display from cursor to end of scree.
     if (ch == 'J' && (len == 0 || (len == 1 && p1 == (uint16_t) -1))) {
         for (int i = tb->col; i <= tb->ncols; i++) {
             tb->buf[(tb->row - 1) * tb->ncols + i - 1].flags = FLAG_LENGTH_0;
@@ -1468,26 +1532,26 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC 1 J, ED, erase display from cursor to begining of screen.
+    // CSI 1 J, ED, erase display from cursor to begining of screen.
     if (ch == 'J' && len == 1 && p1 == 1) {
         // TODO
         assert(false);
     }
 
-    // ESC 2 J, ED, erase entire display.
+    // CSI 2 J, ED, erase entire display.
     if (ch == 'J' && len == 1 && p1 == 2) {
         memset(tb->buf, 0, tb->ncols * tb->nrows * sizeof(struct termbuf_char));
         return;
     }
 
-    // ESC 3 J, ED, erase entire display and clear the scrollback buffer.
+    // CSI 3 J, ED, erase entire display and clear the scrollback buffer.
     if (ch == 'J' && len == 1 && p1 == 3) {
         memset(tb->buf, 0, tb->ncols * tb->nrows * sizeof(struct termbuf_char));
         printf("TODO: clear scrollback buffer.\n");
         return;
     }
 
-    // ESC 0 K, EL, erase line from cursor to end of line.
+    // CSI 0 K, EL, erase line from cursor to end of line.
     if (ch == 'K' && (len == 0 || len == 1)) {
         p1 = p1 == (uint16_t) -1 ? 1 : p1;
 
@@ -1497,13 +1561,13 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // ESC 1 K, EL, erase line from cursor to begining of line.
+    // CSI 1 K, EL, erase line from cursor to begining of line.
     if (ch == 'K' && len == 1 && p1 == 1) {
         // TODO
         assert(false);
     }
 
-    // ESC 2 K, EL, clear entire line.
+    // CSI 2 K, EL, clear entire line.
     if (ch == 'K' && len == 1 && p1 == 2) {
         // TODO
         assert(false);
@@ -1560,387 +1624,9 @@ void action_csi_chomp_final_byte(struct termbuf *tb, char ch) {
         return;
     }
 
-    // We got a so called select graphics rendition (SGR)
-    // https://en.wikipedia.org/wiki/ANSI_escape_code#Select_Graphic_Rendition_parameters
+    // CSI Pn m
     if (ch == 'm') {
-        // ESC[m, or ESC[0m. Reset all graphical rendition flags.
-        if (len == 0 || (len == 1 && p1 == 0)) {
-            // These are all the flags that are set to zero.
-            tb->flags &= ~(FLAG_BOLD
-                           | FLAG_FAINT
-                           | FLAG_ITALIC
-                           | FLAG_UNDERLINE
-                           | FLAG_STRIKEOUT
-                           | FLAG_INVERT_COLORS);
-
-            // Set foreground to "Bright white".
-            tb->fg.r = tb->palette[15 * 3];
-            tb->fg.g = tb->palette[15 * 3 + 1];
-            tb->fg.b = tb->palette[15 * 3 + 2];
-
-            // Set background color to "Black".
-            tb->bg.r = tb->palette[0];
-            tb->bg.g = tb->palette[1];
-            tb->bg.b = tb->palette[2];
-            return;
-        }
-
-        // We got something else, iterate through each parameter
-        for (int i = 0; i < len; i++) {
-            int param = data->params[i];
-            switch (param) {
-            case 1:  // Bold.
-                tb->flags |= FLAG_BOLD;
-                continue;
-            case 2:  // Faint.
-                tb->flags |= FLAG_FAINT;
-                continue;
-            case 3:  // Italic.
-                tb->flags |= FLAG_ITALIC;
-                continue;
-            case 4:  // Underline.
-                tb->flags |= FLAG_UNDERLINE;
-                continue;
-            case 5:  // Slow blink.
-                assert(false);
-            case 6:  // Rapid blink.
-                assert(false);
-            case 7:  // Swap foreground and background colors.
-                tb->flags |= FLAG_INVERT_COLORS;
-                continue;
-            case 8:  // Invisible text.
-                assert(false);
-            case 9:  // Strikeout.
-                assert(false);
-            case 10:  // Prmiary font.
-                assert(false);
-            case 11:  //  Alernative font 1.
-                assert(false);
-            case 12:  //  Alernative font 2.
-                assert(false);
-            case 13:  //  Alernative font 3.
-                assert(false);
-            case 14:  //  Alernative font 4.
-                assert(false);
-            case 15:  //  Alernative font 5.
-                assert(false);
-            case 16:  //  Alernative font 6.
-                assert(false);
-            case 17:  //  Alernative font 7.
-                assert(false);
-            case 18:  //  Alernative font 8.
-                assert(false);
-            case 19:  //  Alernative font 9.
-                assert(false);
-            case 20:  // Fraktur font.
-                assert(false);
-            case 21:  // Doubly underlined or not bold.
-                assert(false);
-            case 22:  // Neither bold nor faint.
-                tb->flags &= ~FLAG_BOLD;
-                tb->flags &= ~FLAG_FAINT;
-                continue;
-            case 23:  // Neither italic "blackletter". (?)
-                // Right now we don't support blackletter, so we only unset the
-                // italic flag
-                tb->flags &= ~ FLAG_ITALIC;
-                continue;
-            case 24:  // Not underlined.
-                tb->flags &= ~FLAG_UNDERLINE;
-                continue;
-            case 25:  // Not blinking.
-                assert(false);
-            case 26:  // Proportional spacing (not known to be used on terms).
-                assert(false);
-            case 27:  // Not reversed (i.e. undo case 7).
-                tb->flags &= ~FLAG_INVERT_COLORS;
-                continue;
-            case 28:  // Not concealed.
-                assert(false);
-            case 29:  // Not crossed out.
-                assert(false);
-            case 30:  // Foreground color 1.
-            case 31:  // Foreground color 2.
-            case 32:  // Foreground color 3.
-            case 33:  // Foreground color 4.
-            case 34:  // Foreground color 5.
-            case 35:  // Foreground color 7.
-            case 36:  // Foreground color 7.
-            case 37:  // Foreground color 8.
-                {
-                    int i = param - 30;
-                    assert(0 <= i && i <= 8);
-                    tb->fg.r = tb->palette[i * 3];
-                    tb->fg.g = tb->palette[i * 3 + 1];
-                    tb->fg.b = tb->palette[i * 3 + 2];
-                    continue;
-                }
-            case 38:  // Set 8-bit foreground color or rgb color.
-                // We should have recived a sequence in one of the two forms
-                // 1)
-                //    ESC[5;<n>m where <n> is some number in the range 0-255.
-                // In this case <n> is one of 256 preset colors.
-                // 2)
-                //    ESC[2;<r>;<g>;<b>m
-                // In this case we have a specific rgb color specified.
-
-                // Before we do this we must handle an important case!
-                // It if possible we recive a string like ESC[1;38;200 which we
-                // should interpret as "Set bold font (1) and set fg color 200
-                // (38;200). I.e. it could very well be that '38' is not the
-                // first param and '200' is not the second, all we not is
-                // the param we we're currently lookin at (param i) is '38'
-                // and the next one should be '200'.
-
-                // There should be at least one parameter following the '38'.
-                assert(i + 1 < len);
-
-                // We expect `q` to be either '5' or '2'..
-                uint8_t q = data->params[i + 1];
-
-                // Set 8-bit foreground color.
-                if (q == 5) {
-                    // There should be at least one parameter following the '5'.
-                    assert(i + 2 < len);
-                    uint16_t q2 = data->params[i + 2];
-                    q2 = q2 == (uint16_t) -1 ? 0 : q2;
-                    assert(q2 <= 255);
-                    tb->fg.r = tb->palette[q2 * 3];
-                    tb->fg.g = tb->palette[q2 * 3 + 1];
-                    tb->fg.b = tb->palette[q2 * 3 + 2];
-
-                    // Continue parsing any potential remaining graphics
-                    // parameters.
-                    i += 2;
-                    continue;
-                }
-
-                // Set rgb color.
-                if (q == 2) {
-                    // There should be at least three parameters following the
-                    // '2'.
-                    assert(i + 4 < len);
-                    uint16_t q2 = data->params[i + 2]; // red.
-                    uint16_t q3 = data->params[i + 3]; // green.
-                    uint16_t q4 = data->params[i + 4]; // blue.
-                    assert(q2 <= 255);
-                    assert(q3 <= 255);
-                    assert(q4 <= 255);
-                    tb->fg.r = q2;
-                    tb->fg.g = q3;
-                    tb->fg.b = q4;
-
-                    // Continue parsing any potential remaining graphics
-                    // parameters.
-                    i += 4;
-                    continue;
-                }
-
-                assert(false);
-            case 39:  // Default foreground color.
-                // Here we as the implementor apparently get to pick a color we
-                // like to be the default foreground color
-                // (according to wikipedia). Let's just pick the 4-bit "bright
-                // white" to be our default.
-                {
-                    int i = 15;
-                    tb->fg.r = tb->palette[i * 3];
-                    tb->fg.g = tb->palette[i * 3 + 1];
-                    tb->fg.b = tb->palette[i * 3 + 2];
-                    continue;
-                }
-            case 40:  // Background color 1.
-            case 41:  // Background color 2.
-            case 42:  // Background color 3.
-            case 43:  // Background color 4.
-            case 44:  // Background color 5.
-            case 45:  // Background color 6.
-            case 46:  // Background color 7.
-            case 47:  // Background color 8.
-                {
-                    int i = param - 40;
-                    assert(0 <= i && i <= 8);
-                    tb->bg.r = tb->palette[i * 3];
-                    tb->bg.g = tb->palette[i * 3 + 1];
-                    tb->bg.b = tb->palette[i * 3 + 2];
-                    continue;
-                }
-            case 48:  // Set 8-bit foreground color or rgb color.
-                // For more information, see how case 38 is handlede, this case
-                // is the same but for background colors.
-
-                // There should be at least one parameter following the '38'.
-                assert(i + 1 < len);
-
-                // We expect `q` to be either '5' or '2'..
-                q = data->params[i + 1];
-
-                // Set 8-bit background color.
-                if (q == 5) {
-                    // There should be at least one parameter following the '5'.
-                    assert(i + 2 < len);
-                    uint16_t q2 = data->params[i + 2];
-                    q2 = q2 == (uint16_t) -1 ? 0 : q2;
-                    assert(q2 <= 255);
-                    tb->bg.r = tb->palette[q2 * 3];
-                    tb->bg.g = tb->palette[q2 * 3 + 1];
-                    tb->bg.b = tb->palette[q2 * 3 + 2];
-
-                    // Continue parsing any potential remaining graphics
-                    // parameters.
-                    i += 2;
-                    continue;
-                }
-
-                // Set rgb color.
-                if (q == 2) {
-                    // There should be at least three parameters following the
-                    // '2'.
-                    assert(i + 4 < len);
-                    uint16_t q2 = data->params[i + 2]; // red.
-                    uint16_t q3 = data->params[i + 3]; // green.
-                    uint16_t q4 = data->params[i + 4]; // blue.
-                    assert(q2 <= 255);
-                    assert(q3 <= 255);
-                    assert(q4 <= 255);
-                    tb->bg.r = q2;
-                    tb->bg.g = q3;
-                    tb->bg.b = q4;
-
-                    // Continue parsing any potential remaining graphics
-                    // parameters.
-                    i += 4;
-                    continue;
-
-                }
-
-                assert(false);
-            case 49:  // Default background color.
-                // See: case 39
-
-                // Set background color to black.
-                tb->bg.r = tb->palette[0];
-                tb->bg.g = tb->palette[1];
-                tb->bg.b = tb->palette[2];
-                continue;
-            case 50:
-                assert(false);
-            case 51:
-                assert(false);
-            case 52:
-                assert(false);
-            case 53:
-                assert(false);
-            case 54:
-                assert(false);
-            case 55:
-                assert(false);
-            case 56:
-                assert(false);
-            case 57:
-                assert(false);
-            case 58:
-                assert(false);
-            case 59:
-                assert(false);
-            case 60:
-                assert(false);
-            case 61:
-                assert(false);
-            case 62:
-                assert(false);
-            case 63:
-                assert(false);
-            case 64:
-                assert(false);
-            case 65:
-                assert(false);
-            case 66:
-                assert(false);
-            case 67:
-                assert(false);
-            case 68:
-                assert(false);
-            case 69:
-                assert(false);
-            case 70:
-                assert(false);
-            case 71:
-                assert(false);
-            case 72:
-                assert(false);
-            case 73:
-                assert(false);
-            case 74:
-                assert(false);
-            case 75:
-                assert(false);
-            case 76:
-                assert(false);
-            case 77:
-                assert(false);
-            case 78:
-                assert(false);
-            case 79:
-                assert(false);
-            case 80:
-                assert(false);
-            case 81:
-                assert(false);
-            case 82:
-                assert(false);
-            case 83:
-                assert(false);
-            case 84:
-                assert(false);
-            case 85:
-                assert(false);
-            case 86:
-                assert(false);
-            case 87:
-                assert(false);
-            case 88:
-                assert(false);
-            case 89:
-                assert(false);
-            case 90:  // Set bright foregrund color 1.
-            case 91:  // Set bright foregrund color 2.
-            case 92:  // Set bright foregrund color 3.
-            case 93:  // Set bright foregrund color 4.
-            case 94:  // Set bright foregrund color 5.
-            case 95:  // Set bright foregrund color 6.
-            case 96:  // Set bright foregrund color 7.
-            case 97:  // Set bright foregrund color 8.
-                {
-                    int i = param - 90;
-                    assert(0 <= i && i <= 8);
-                    tb->fg.r = tb->palette[(i + 8) * 3];
-                    tb->fg.g = tb->palette[(i + 8) * 3 + 1];
-                    tb->fg.b = tb->palette[(i + 8) * 3 + 2];
-                    continue;
-                }
-            case 98:
-                assert(false);
-            case 99:
-                assert(false);
-            case 100:  // Set bright background color 1.
-            case 101:  // Set bright background color 2.
-            case 102:  // Set bright background color 3.
-            case 103:  // Set bright background color 4.
-            case 104:  // Set bright background color 5.
-            case 105:  // Set bright background color 6.
-            case 106:  // Set bright background color 7.
-            case 107:  // Set bright background color 8.
-                {
-                    int i = param - 100;
-                    assert(0 <= i && i <= 8);
-                    tb->bg.r = tb->palette[(i + 8) * 3];
-                    tb->bg.g = tb->palette[(i + 8) * 3 + 1];
-                    tb->bg.b = tb->palette[(i + 8) * 3 + 2];
-                    continue;
-                }
-            }
-        }
+        handle_select_graphics_rendition(tb, data->params, len);
         return;
     }
 
@@ -2079,9 +1765,14 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         }
         return;
     case 47:
-        // same as 1047??
-        // TODO
-        break;
+        // Exact same as CSI ? 1047 h/l
+        if (final_byte == 'l' && tb->mainbuf != NULL) {
+            termbuf_use_main_buffer(tb);
+        }
+        if (final_byte == 'h' && tb->mainbuf == NULL) {
+            termbuf_use_alternate_buffer(tb);
+        }
+        return;
     case 69:
         // Ps = 6 9  ⇒  Enable left and right margin mode (DECLRMM)
         // https://vt100.net/docs/vt510-rm/DECLRMM.html
@@ -2102,16 +1793,31 @@ void csi_dec_private_mode_set(struct termbuf *tb, char final_byte) {
         }
         return;
     case 1047:
-        // Use normal/alternate screen buffer.
-        // TODO
-        break;
+        if (final_byte == 'l' && tb->mainbuf != NULL) {
+            termbuf_use_main_buffer(tb);
+        }
+        if (final_byte == 'h' && tb->mainbuf == NULL) {
+            termbuf_use_alternate_buffer(tb);
+        }
+        return;
     case 1048:
-        // Save/restore cursor as in DECSC/DECRC.
-        // TODO
-        break;
+        if (final_byte == 'l') {
+            handle_restore_cursor(tb);
+        }
+        if (final_byte == 'h') {
+            handle_save_cursor(tb);
+        }
+        return;
     case 1049:
-        // Combination of case 1047 and 1048 above.
-        break;
+        if (final_byte == 'l' && tb->mainbuf != NULL) {
+            termbuf_use_main_buffer(tb);
+            handle_restore_cursor(tb);
+        }
+        if (final_byte == 'h' && tb->mainbuf == NULL) {
+            handle_save_cursor(tb);
+            termbuf_use_alternate_buffer(tb);
+        }
+        return;
     case 2004:
         // ESC[?2004h "Turn on bracketed paste mode."
         flag = FLAG_BRACKETED_PASTE_MODE;
@@ -2215,12 +1921,12 @@ void unknown_csi(struct termbuf *tb, char ch, char *fname, int line) {
              "    param4        : %d.\n"
              "    param5        : %d.\n"
              "    intermediate  : '%c' (decimal %d).\n",
-             ch, ch,
-             ic, ic,
+             (ch == '\0' ? '0' : ch), ch,
+             (ic == '\0' ? '0' : ic), ic,
              data->current_param,
              len,
              p1, p2, p3, p4, p5,
-             intermediate, intermediate);
+             (intermediate == '\0' ? '0' : intermediate), intermediate);
     assert(written < 1024);
     diagnostics_printf(buf, written);
 }

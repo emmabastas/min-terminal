@@ -148,12 +148,9 @@ struct termbuf {
     struct color bg;
     struct color default_fg;
     struct color default_bg;
-    // There are two so called "Fe" escape sequences that instructs the terminal
-    // to save resp. restore the cursor position, so we save this here.
-    // TODO: We should also save things like "shift state" and "formatting
-    //       attributes".
-    // FYI the two sequences are "ESC7" to save and "ESC8" to restore.
-    // If the value of these are -1 then not cursor has been saved.
+    // Store saved cursor pos.
+    // Invoked by ESC 8/7, CSI u/s, CSI ? 1048 h/l
+    // See: https://github.com/ThomasDickey/esctest2/blob/master/esctest/tests/save_restore_cursor.py
     int saved_row;
     int saved_col;
     // Sometimes we need to transmit data back to the shell after having recived
@@ -173,6 +170,11 @@ struct termbuf {
     // Current color paltte
     // A buffer of 256 * 3 uint8_t's corresponding to 255 rgb colors.
     uint8_t *palette;
+    // Used with alternate buffer
+    struct termbuf_char *mainbuf; // When this != NULL we use alt buf and this
+                                  // is the main buffer.
+    int alt_saved_row; // When using alternate buffer, this keeps track of main
+    int alt_saved_col; // buffers saved cursor, and vice-versa.
 };
 
 void termbuf_initialize(int nrows,
@@ -180,6 +182,9 @@ void termbuf_initialize(int nrows,
                         int pty_fd,
                         struct termbuf *tb_ret);
 void termbuf_free(struct termbuf *tb);
+
+void termbuf_use_alternate_buffer(struct termbuf *tb);
+void termbuf_use_main_buffer(struct termbuf *tb);
 
 // Parses bytes that we're sent by the shell, including things like C0, C1, and
 // Fe escape sequences, and does the appropriate thing.
